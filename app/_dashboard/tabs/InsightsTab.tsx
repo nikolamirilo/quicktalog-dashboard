@@ -1,5 +1,16 @@
 "use client"
 
+import {
+  BookPlus,
+  CreditCard,
+  Divide,
+  Eye,
+  MousePointerClick,
+  ScanEye,
+  Timer,
+  UserPlus,
+} from "lucide-react"
+
 import { AreaChart, BarChart, Card, DonutChart, LineChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
@@ -45,21 +56,25 @@ export default function InsightsTab({
       >
         <KpiCard
           label="New users"
+          icon={UserPlus}
           value={number(insights.newUsers)}
           hint={`${number(insights.activatedUsers)} created a catalogue (${pct(insights.activationRate)})`}
         />
         <KpiCard
           label="Catalogues created"
+          icon={BookPlus}
           value={number(insights.cataloguesCreated)}
           hint={`${number(insights.publishedCatalogues)} published (${pct(insights.publishRate)})`}
         />
         <KpiCard
           label="Catalogues per user"
+          icon={Divide}
           value={decimal(insights.cataloguesPerUser)}
           hint="their catalogues ÷ new users · existing users excluded"
         />
         <KpiCard
           label="Total views"
+          icon={Eye}
           value={compactNumber(insights.totalViews)}
           hint={`${compactNumber(insights.uniqueVisitors)} unique visitors`}
         />
@@ -72,16 +87,19 @@ export default function InsightsTab({
       >
         <KpiCard
           label="Views per catalogue"
+          icon={ScanEye}
           value={number(insights.viewsPerCatalogue)}
           hint="average across their catalogues"
         />
         <KpiCard
           label="Views per user"
+          icon={MousePointerClick}
           value={number(insights.viewsPerUser)}
           hint="average across the cohort"
         />
         <KpiCard
           label="Time to first catalogue"
+          icon={Timer}
           value={
             insights.medianTtvDays == null
               ? "—"
@@ -91,6 +109,7 @@ export default function InsightsTab({
         />
         <KpiCard
           label="Converted to paid"
+          icon={CreditCard}
           value={number(insights.subscribedUsers)}
           hint={`${pct(insights.paidConversionRate)} of new users`}
         />

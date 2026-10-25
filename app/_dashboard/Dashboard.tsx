@@ -1,13 +1,35 @@
 "use client"
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
+import {
+  Activity,
+  BookOpen,
+  BookPlus,
+  Eye,
+  Lightbulb,
+  Puzzle,
+  Sparkles,
+  TrendingUp,
+  UserPlus,
+  Wallet,
+} from "lucide-react"
 
+import AuthGuard from "@/components/AuthGuard"
+import Backdrop from "@/components/Backdrop"
+import Header from "@/components/Header"
 import { cx } from "@/lib/utils/cx"
 
 import { computeView, resolveRange } from "./clientView"
-import type { DashboardData, RangeKey } from "./types"
-import Header from "@/components/Header"
-import AuthGuard from "@/components/AuthGuard"
+import Hero, { type Pulse } from "./Hero"
+import type { DashboardData, DashboardView, RangeKey } from "./types"
+import { compactNumber, number } from "./ui"
+import { useIndicator } from "./useIndicator"
 
 import InsightsTab from "./tabs/InsightsTab"
 import GrowthTab from "./tabs/GrowthTab"
@@ -33,23 +55,37 @@ const TABS = [
   {
     id: "insights",
     label: "Insights",
+    icon: Lightbulb,
     hint: "New users, their catalogues and the traffic they earned",
   },
-  { id: "growth", label: "Growth", hint: "Signups, catalogues and pageviews over time" },
+  {
+    id: "growth",
+    label: "Growth",
+    icon: TrendingUp,
+    hint: "Signups, catalogues and pageviews over time",
+  },
   {
     id: "engagement",
     label: "Engagement",
+    icon: Activity,
     hint: "Activation funnel and how alive the catalogues are",
   },
   {
     id: "catalogues",
     label: "Catalogues",
+    icon: BookOpen,
     hint: "Composition, content depth and freshness",
   },
-  { id: "revenue", label: "Revenue", hint: "Subscriptions, plans and churn" },
+  {
+    id: "revenue",
+    label: "Revenue",
+    icon: Wallet,
+    hint: "Subscriptions, plans and churn",
+  },
   {
     id: "features",
     label: "Features",
+    icon: Puzzle,
     hint: "AI, content blocks, integrations and themes",
   },
 ] as const
@@ -73,6 +109,30 @@ const monthsAgo = (n: number) => {
   return isoDay(d)
 }
 
+// The slider both pill groups share: an amber-soft pill that glides to the
+// active item.
+function Indicator({
+  box,
+  className,
+}: {
+  box: ReturnType<typeof useIndicator>["box"]
+  className: string
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cx(
+        "pointer-events-none absolute top-0 bottom-0",
+        box?.animate &&
+          "transition-[left,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        box ? "opacity-100" : "opacity-0",
+        className,
+      )}
+      style={box ? { left: box.left, width: box.width } : undefined}
+    />
+  )
+}
+
 function RangeSelector({
   value,
   onChange,
@@ -80,28 +140,34 @@ function RangeSelector({
   value: RangeKey
   onChange: (v: RangeKey) => void
 }) {
+  const { ref, box } = useIndicator(value)
   return (
     <div
       role="group"
       aria-label="Date range"
-      className="inline-flex gap-0.5 rounded-xl border border-line bg-bg-alt p-[3px]"
+      className="inline-flex self-start rounded-xl border border-line bg-bg-alt p-[3px] sm:self-auto"
     >
-      {RANGES.map((r) => (
-        <button
-          key={r}
-          type="button"
-          aria-pressed={value === r}
-          onClick={() => onChange(r)}
-          className={cx(
-            "inline-flex min-h-8 items-center justify-center rounded-[9px] px-3 text-[13px] font-semibold whitespace-nowrap transition-colors",
-            value === r
-              ? "bg-card text-ink shadow-[0_1px_2px_rgba(22,20,15,0.08),0_2px_6px_rgba(22,20,15,0.06)]"
-              : "text-ink-2 hover:text-ink",
-          )}
-        >
-          {RANGE_LABEL[r]}
-        </button>
-      ))}
+      <div ref={ref} className="relative flex gap-0.5">
+        <Indicator
+          box={box}
+          className="rounded-[9px] bg-ink/12 shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]"
+        />
+        {RANGES.map((r) => (
+          <button
+            key={r}
+            data-key={r}
+            type="button"
+            aria-pressed={value === r}
+            onClick={() => onChange(r)}
+            className={cx(
+              "relative inline-flex min-h-8 items-center justify-center rounded-[9px] px-3 text-[13px] font-semibold whitespace-nowrap transition-colors",
+              value === r ? "text-ink" : "text-ink-2 hover:text-ink",
+            )}
+          >
+            {RANGE_LABEL[r]}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -113,31 +179,77 @@ function TabBar({
   value: TabId
   onChange: (v: TabId) => void
 }) {
+  const { ref, box } = useIndicator(value)
+
+  // Keep the active tab visible when the row scrolls (phones), e.g. on a
+  // deep link to #features.
+  const scrolled = useRef(false)
+  useEffect(() => {
+    const list = ref.current
+    const el = list?.querySelector<HTMLElement>(`[data-key="${value}"]`)
+    if (!list || !el) return
+    list.scrollTo({
+      left: el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2,
+      behavior: scrolled.current ? "smooth" : "auto",
+    })
+    scrolled.current = true
+  }, [ref, value])
+
+  // Arrow keys move between tabs, as in the WAI-ARIA tabs pattern.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return
+    e.preventDefault()
+    const i = TABS.findIndex((t) => t.id === value)
+    const next =
+      e.key === "Home"
+        ? 0
+        : e.key === "End"
+          ? TABS.length - 1
+          : (i + (e.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length
+    onChange(TABS[next].id)
+    ref.current
+      ?.querySelector<HTMLElement>(`[data-key="${TABS[next].id}"]`)
+      ?.focus()
+  }
+
   return (
     <div
+      ref={ref}
       role="tablist"
       aria-label="Analytics sections"
-      className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onKeyDown={onKeyDown}
+      className="relative flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
+      <Indicator
+        box={box}
+        className="rounded-full border border-amber/55 bg-amber-soft shadow-[0_6px_16px_-8px_rgba(245,163,0,0.5)]"
+      />
       {TABS.map((t) => {
         const active = t.id === value
+        const Icon = t.icon
         return (
           <button
             key={t.id}
+            data-key={t.id}
             type="button"
             role="tab"
             id={`tab-${t.id}`}
             aria-selected={active}
             aria-controls={`panel-${t.id}`}
+            tabIndex={active ? 0 : -1}
             title={t.hint}
             onClick={() => onChange(t.id)}
             className={cx(
-              "inline-flex h-10 flex-none items-center rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors",
+              "relative inline-flex h-10 flex-none items-center gap-[7px] rounded-full px-3.5 text-sm whitespace-nowrap transition-colors focus-visible:outline-offset-[-3px]",
               active
-                ? "border-amber bg-amber-soft font-bold text-ink"
-                : "border-line bg-card font-semibold text-ink-2 hover:bg-bg-alt hover:text-ink",
+                ? "font-bold text-ink"
+                : "font-semibold text-ink-2 hover:bg-ink/[0.04] hover:text-ink",
             )}
           >
+            <Icon
+              className={cx("size-4", active ? "text-amber-ink" : "text-ink-3")}
+              aria-hidden="true"
+            />
             {t.label}
           </button>
         )
@@ -204,13 +316,77 @@ function DatePicker({
         type="button"
         disabled={!valid || !dirty}
         onClick={() => onApply(draftStart, draftEnd)}
-        className="inline-flex h-9 items-center rounded-full bg-amber px-4 text-sm font-semibold text-ink shadow-amber transition duration-200 hover:-translate-y-0.5 hover:bg-amber-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+        className="inline-flex h-10 items-center rounded-full bg-amber px-4 text-sm font-semibold text-on-amber shadow-amber transition duration-200 hover:-translate-y-0.5 hover:bg-amber-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
       >
         Apply
       </button>
     </div>
   )
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// The period of the same length that ends the day before `start`.
+const previousRange = (start: string, end: string) => {
+  const s = Date.parse(`${start}T00:00:00Z`)
+  const e = Date.parse(`${end}T00:00:00Z`)
+  const prevEnd = s - DAY_MS
+  return {
+    start: isoDay(new Date(prevEnd - (e - s))),
+    end: isoDay(new Date(prevEnd)),
+  }
+}
+
+const COMPARE_LABEL: Record<RangeKey, string | null> = {
+  "1M": "vs the previous month",
+  "3M": "vs the previous 3 months",
+  "6M": "vs the previous 6 months",
+  "12M": "vs the previous 12 months",
+  ALL: null,
+  CUSTOM: null, // filled in with the day count
+}
+
+// The four numbers the hero leads with, each with its trend series.
+const pulsesOf = (view: DashboardView, prev: DashboardView | null): Pulse[] => [
+  {
+    label: "New users",
+    icon: UserPlus,
+    value: view.totals.users,
+    previous: prev?.totals.users ?? null,
+    points: view.growth.users.monthly.map((p) => ({ date: p.date, value: p.Users })),
+    format: number,
+  },
+  {
+    label: "New catalogues",
+    icon: BookPlus,
+    value: view.totals.catalogues,
+    previous: prev?.totals.catalogues ?? null,
+    points: view.growth.catalogues.monthly.map((p) => ({
+      date: p.date,
+      value: p.Catalogues,
+    })),
+    format: number,
+  },
+  {
+    label: "Pageviews",
+    icon: Eye,
+    value: view.totals.pageviews,
+    previous: prev?.totals.pageviews ?? null,
+    points: view.pageviewsSeries.map((p) => ({ date: p.date, value: p.Pageviews })),
+    format: (n) => (n >= 10000 ? compactNumber(n) : number(n)),
+  },
+  {
+    label: "AI assistant turns",
+    icon: Sparkles,
+    value: view.features.ai.turns,
+    previous: prev?.features.ai.turns ?? null,
+    points: view.features.ai.overTime.map((p) => ({
+      date: p.date,
+      value: p["AI turns"],
+    })),
+    format: number,
+  },
+]
 
 export default function Dashboard({ data }: { data: DashboardData }) {
   const [range, setRange] = useState<RangeKey>("12M")
@@ -233,6 +409,17 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
   const view = useMemo(() => computeView(data, start, end), [data, start, end])
 
+  // "All" has nothing before it to compare against.
+  const prevView = useMemo(() => {
+    if (range === "ALL") return null
+    const prev = previousRange(start, end)
+    return computeView(data, prev.start, prev.end)
+  }, [data, range, start, end])
+
+  const days = Math.round((Date.parse(end) - Date.parse(start)) / DAY_MS) + 1
+  const compareLabel =
+    range === "CUSTOM" ? `vs the previous ${days} days` : COMPARE_LABEL[range]
+
   const animationKey =
     range === "CUSTOM" ? `custom-${customStart}-${customEnd}` : range
 
@@ -240,25 +427,20 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-bg pt-[9px] pb-16">
-        <Header />
+      <Backdrop />
+      <main className="min-h-screen pt-[9px] pb-20">
+        <Header nav={<TabBar value={tab} onChange={selectTab} />} />
 
-        <div className="mx-auto max-w-[1280px] space-y-6 px-5 pt-8">
-          {/* Top-level time range — drives every chart on every tab */}
-          <section className="space-y-5">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <span className="text-sm font-bold text-amber-ink">
-                  Quicktalog admin
-                </span>
-                <h1 className="mt-1 text-title-app font-extrabold text-ink">
-                  Analytics
-                </h1>
-                <p className="mt-1.5 text-[15px] text-ink-2">
-                  All metrics reflect the selected period · {start} → {end}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+        <div className="mx-auto max-w-[1280px] space-y-10 px-5 pt-6">
+          {/* Top-level time range: drives every chart on every tab */}
+          <Hero
+            start={start}
+            end={end}
+            pulses={pulsesOf(view, prevView)}
+            compareLabel={compareLabel}
+            controls={
+              <>
+                <RangeSelector value={range} onChange={setRange} />
                 {range === "CUSTOM" && (
                   <DatePicker
                     start={customStart}
@@ -269,11 +451,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
                     }}
                   />
                 )}
-                <RangeSelector value={range} onChange={setRange} />
-              </div>
-            </div>
-            <TabBar value={tab} onChange={selectTab} />
-          </section>
+              </>
+            }
+          />
 
           <div
             role="tabpanel"

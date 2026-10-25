@@ -72,9 +72,7 @@ const ChartTooltip = ({
     return (
       <div
         className={cx(
-          "rounded-md border text-sm shadow-hover",
-          "border-line",
-          "bg-card",
+          "glass rounded-md text-sm [--glass-tint:var(--glass-tint-strong)] [--glass-shadow:var(--shadow-hover)]",
         )}
       >
         <div className={cx("space-y-1 px-4 py-2")}>
