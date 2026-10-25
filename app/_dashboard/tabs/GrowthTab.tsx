@@ -1,5 +1,15 @@
 "use client"
 
+import {
+  BookPlus,
+  Divide,
+  Eye,
+  Sprout,
+  UserCheck,
+  UserPlus,
+  Users,
+} from "lucide-react"
+
 import { AreaChart, BarChart, Card } from "@/components/charts"
 
 import type { DashboardView } from "../types"
@@ -36,21 +46,25 @@ export default function GrowthTab({
       >
         <KpiCard
           label="New users"
+          icon={UserPlus}
           value={number(totals.users)}
           hint={`${number(totals.activeUsers)} active (have traffic)`}
         />
         <KpiCard
           label="New catalogues"
+          icon={BookPlus}
           value={number(totals.catalogues)}
           hint={`${number(creationSplit.cataloguesByNewUsers)} by new users · ${number(creationSplit.cataloguesByExistingUsers)} by existing`}
         />
         <KpiCard
           label="Pageviews"
+          icon={Eye}
           value={compactNumber(totals.pageviews)}
           hint={`${compactNumber(totals.uniqueVisitors)} unique visitors`}
         />
         <KpiCard
           label="Existing users"
+          icon={Users}
           value={number(creationSplit.existingUsers)}
           hint={`${number(creationSplit.activeExistingCreators)} created something this period`}
         />
@@ -70,16 +84,19 @@ export default function GrowthTab({
       >
         <KpiCard
           label="Catalogues / new user"
+          icon={Divide}
           value={decimal(creationSplit.perNewUser)}
           hint={`${number(creationSplit.cataloguesByNewUsers)} ÷ ${number(creationSplit.newUsers)} new users`}
         />
         <KpiCard
           label="Catalogues / existing user"
+          icon={Divide}
           value={decimal(creationSplit.perExistingUser)}
           hint={`${number(creationSplit.cataloguesByExistingUsers)} ÷ ${number(creationSplit.existingUsers)} existing users`}
         />
         <KpiCard
           label="From new users"
+          icon={Sprout}
           value={number(creationSplit.cataloguesByNewUsers)}
           hint={`${
             totals.catalogues
@@ -91,6 +108,7 @@ export default function GrowthTab({
         />
         <KpiCard
           label="From existing users"
+          icon={UserCheck}
           value={number(creationSplit.cataloguesByExistingUsers)}
           hint={`${number(creationSplit.activeExistingCreators)} distinct existing creators`}
         />

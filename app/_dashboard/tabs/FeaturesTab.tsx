@@ -1,5 +1,12 @@
 "use client"
 
+import {
+  Palette,
+  Radar,
+  Shapes,
+  Sparkles,
+} from "lucide-react"
+
 import { BarChart, LineChart } from "@/components/charts"
 
 import type { DashboardView, FeatureAdoption } from "../types"
@@ -98,21 +105,25 @@ export default function FeaturesTab({
       >
         <KpiCard
           label="AI assistant users"
+          icon={Sparkles}
           value={number(ai.users)}
           hint={`${pct(ai.userPct)} of creators · ${number(ai.turns)} turns`}
         />
         <KpiCard
           label="Custom visuals"
+          icon={Shapes}
           value={number(customVisual?.catalogues ?? 0)}
           hint={`${pct(customVisual?.pctCatalogues ?? 0)} of catalogues · ${number(customVisual?.owners ?? 0)} owners`}
         />
         <KpiCard
           label="Tracking integrations"
+          icon={Radar}
           value={number(features.trackedCatalogues)}
           hint={`GA4 ${number(byKey.get("googleAnalytics")?.catalogues ?? 0)} · Meta Pixel ${number(byKey.get("metaPixel")?.catalogues ?? 0)}`}
         />
         <KpiCard
           label="Custom themes"
+          icon={Palette}
           value={number(customTheme?.catalogues ?? 0)}
           hint={`${number(themes.savedThemes)} saved by ${number(themes.usersWithSavedThemes)} users`}
         />
@@ -150,38 +161,53 @@ export default function FeaturesTab({
         </ChartCard>
       </section>
 
+      {/* The design system puts the AI story on a night band. */}
       <section
         key={`${animationKey}-feat-ai`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        className="night night-band qt-card animate-chart-in rounded-cta p-5 sm:p-8"
       >
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="AI & import over time"
-            subtitle="Assistant turns, and catalogues created with AI or from an OCR scan"
-          >
-            <div className="mb-3 flex flex-wrap gap-3">
-              <KpiInline label="AI turns" value={number(ai.turns)} />
-              <KpiInline label="Credits spent" value={number(ai.creditsSpent)} />
-              <KpiInline label="Refunded turns" value={pct(ai.refundRate)} />
-            </div>
-            <LineChart
-              data={ai.overTime}
-              index="date"
-              categories={["AI turns", "AI catalogues", "OCR imports"]}
-              colors={["amber", "violet", "magenta"]}
-              valueFormatter={number}
-              yAxisWidth={44}
-              className="h-full min-h-56 flex-1"
-            />
-          </ChartCard>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-xl">
+            <span className="inline-flex items-center gap-[7px] rounded-full border border-amber/30 bg-amber/12 px-3 py-1.5 text-[12.5px] font-bold tracking-[0.06em] text-amber-ink uppercase">
+              <Sparkles className="size-3.5" aria-hidden="true" />
+              AI assistant
+            </span>
+            <h2 className="mt-3 text-card-title font-bold text-ink">
+              How the AI assistant is used
+            </h2>
+            <p className="mt-1 text-[15px] text-ink-2">
+              Turns, credits and the people behind them in the selected period
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <KpiInline label="AI turns" value={number(ai.turns)} />
+            <KpiInline label="Credits spent" value={number(ai.creditsSpent)} />
+            <KpiInline label="Refunded turns" value={pct(ai.refundRate)} />
+          </div>
         </div>
 
-        <ChartCard title="Top AI users" subtitle="Credits spent in period">
-          <RankingList
-            rows={ai.topUsers}
-            valueLabel="Credits"
-          />
-        </ChartCard>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <ChartCard
+              title="AI & import over time"
+              subtitle="Assistant turns, and catalogues created with AI or from an OCR scan"
+            >
+              <LineChart
+                data={ai.overTime}
+                index="date"
+                categories={["AI turns", "AI catalogues", "OCR imports"]}
+                colors={["amber", "violet", "magenta"]}
+                valueFormatter={number}
+                yAxisWidth={44}
+                className="h-full min-h-56 flex-1"
+              />
+            </ChartCard>
+          </div>
+
+          <ChartCard title="Top AI users" subtitle="Credits spent in period">
+            <RankingList rows={ai.topUsers} valueLabel="Credits" />
+          </ChartCard>
+        </div>
       </section>
 
       <section

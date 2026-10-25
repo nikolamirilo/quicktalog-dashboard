@@ -1,5 +1,12 @@
 "use client"
 
+import {
+  BookPlus,
+  Globe,
+  Hourglass,
+  LayoutList,
+} from "lucide-react"
+
 import { BarChart, DonutChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
@@ -46,21 +53,25 @@ export default function CataloguesTab({
       >
         <KpiCard
           label="New catalogues"
+          icon={BookPlus}
           value={number(totals.catalogues)}
           hint="created in the selected period"
         />
         <KpiCard
           label="Published (all time)"
+          icon={Globe}
           value={number(engagement.publishedCatalogues)}
           hint={`${number(engagement.cataloguesWithTraffic)} received traffic`}
         />
         <KpiCard
           label="Avg content"
+          icon={LayoutList}
           value={`${content.avgSections} / ${content.avgItems}`}
           hint="sections / items per catalogue"
         />
         <KpiCard
           label="Stale catalogues"
+          icon={Hourglass}
           value={pct(freshness.pctStale)}
           hint="published, untouched for >90 days"
         />

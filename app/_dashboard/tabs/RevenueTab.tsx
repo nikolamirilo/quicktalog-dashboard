@@ -1,5 +1,12 @@
 "use client"
 
+import {
+  CalendarX,
+  Percent,
+  TrendingDown,
+  Wallet,
+} from "lucide-react"
+
 import { AreaChart, BarChart, Card, DonutChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
@@ -40,6 +47,7 @@ export default function RevenueTab({
       >
         <KpiCard
           label="Active payers"
+          icon={Wallet}
           value={number(revenue.activePayers)}
           hint={
             revenue.mrr != null
@@ -49,16 +57,19 @@ export default function RevenueTab({
         />
         <KpiCard
           label="Paid conversion"
+          icon={Percent}
           value={pct(subscriptions.paidConversionPct)}
           hint="active payers ÷ all users"
         />
         <KpiCard
           label="Churn rate"
+          icon={TrendingDown}
           value={pct(subscriptions.churnRate)}
           hint="canceled ÷ (active + canceled)"
         />
         <KpiCard
           label="Scheduled cancellations"
+          icon={CalendarX}
           value={number(subscriptions.scheduledCancellations)}
           hint="upcoming churn (early warning)"
         />

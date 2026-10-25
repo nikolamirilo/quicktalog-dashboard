@@ -1,5 +1,12 @@
 "use client"
 
+import {
+  EyeOff,
+  Ghost,
+  Timer,
+  Zap,
+} from "lucide-react"
+
 import { AreaChart, BarChart, Card, LineChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
@@ -36,11 +43,13 @@ export default function EngagementTab({
       >
         <KpiCard
           label="Activation rate"
+          icon={Zap}
           value={pct(activation.activationRate)}
           hint="new users who created a catalogue"
         />
         <KpiCard
           label="Time to first catalogue"
+          icon={Timer}
           value={
             activation.medianTtvDays == null
               ? "—"
@@ -50,11 +59,13 @@ export default function EngagementTab({
         />
         <KpiCard
           label="Ghost users"
+          icon={Ghost}
           value={number(creators.ghostUsers)}
           hint={`${pct(creators.ghostPct)} of all users · 0 catalogues`}
         />
         <KpiCard
           label="Dead catalogues"
+          icon={EyeOff}
           value={pct(engagement.deadPct)}
           hint="published, 0 views this period"
         />

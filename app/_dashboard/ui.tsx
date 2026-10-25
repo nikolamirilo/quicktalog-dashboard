@@ -1,6 +1,10 @@
 "use client"
 
+import type { LucideIcon } from "lucide-react"
+
+import AnimatedNumber from "@/components/AnimatedNumber"
 import { Card } from "@/components/charts"
+import { cx } from "@/lib/utils/cx"
 import {
   getColorClassName,
   type AvailableChartColorsKeys,
@@ -61,22 +65,39 @@ export const colorsFor = (
 
 // ── Building blocks ─────────────────────────────────────────────────────────
 
+// The app's KPI tile (quicktalog-app src/components/analytics/KpiCards.tsx):
+// label, big number and a note, with the icon in an amber tile top right.
 export function KpiCard({
   label,
   value,
   hint,
+  icon: Icon,
 }: {
   label: string
   value: string
   hint?: string
+  icon?: LucideIcon
 }) {
   return (
     <Card className="flex min-w-0 flex-col gap-1 p-4">
-      <span className="text-[13px] leading-snug font-semibold text-ink-2">
+      {Icon && (
+        <span
+          aria-hidden="true"
+          className="absolute top-3.5 right-3.5 grid size-[34px] place-items-center rounded-[11px] border border-amber/35 bg-amber-soft text-amber-ink"
+        >
+          <Icon className="size-4" />
+        </span>
+      )}
+      <span
+        className={cx(
+          "text-[13px] leading-snug font-semibold text-ink-2",
+          Icon && "pr-10",
+        )}
+      >
         {label}
       </span>
       <b className="mt-1.5 truncate font-head text-[clamp(22px,3vw,30px)] leading-tight font-extrabold tracking-[-0.03em] text-ink tabular-nums">
-        {value}
+        <AnimatedNumber value={value} />
       </b>
       {hint && (
         <small className="text-[12.5px] leading-snug text-ink-3">{hint}</small>
@@ -87,7 +108,7 @@ export function KpiCard({
 
 export function KpiInline({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-bg-alt px-3 py-2">
+    <div className="rounded-md bg-bg-alt/70 px-3 py-2">
       <p className="text-[12.5px] leading-snug font-semibold text-ink-2">
         {label}
       </p>
