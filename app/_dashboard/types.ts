@@ -1,3 +1,5 @@
+import type { FeatureGroup, FeatureKey } from "./features"
+
 export type UserPoint = { date: string; Users: number }
 export type CataloguePoint = { date: string; Catalogues: number }
 
@@ -26,8 +28,9 @@ export type UserRow = {
 }
 
 // Catalogue row delivered to the client. The heavy JSONB columns (content,
-// appearance, contact, partners, tags) are reduced to compact scalars in
-// `aggregate.ts` so the browser never receives the raw catalogue payload.
+// appearance, header, footer, metadata, ...) are reduced to compact scalars
+// and feature flags in `aggregate.ts` so the browser never receives the raw
+// catalogue payload.
 export type CatalogueRow = {
   id: string
   name: string
@@ -35,24 +38,28 @@ export type CatalogueRow = {
   source: string | null
   language: string | null
   business_type: string | null
-  created_by: string
+  user_id: string
   created_at: string
   updated_at: string | null
   contentSections: number
   contentItems: number
   hasLogo: boolean
   hasContact: boolean
-  hasAppearance: boolean
+  hasLegal: boolean
+  hasSeo: boolean
   hasPartners: boolean
   tagCount: number
+  // Stored theme name ("theme-monochrome", ...), or "custom" for a custom theme.
+  theme: string | null
+  features: FeatureKey[]
 }
 
 export type AnalyticsRow = {
-  date: string
-  current_url: string
-  pageview_count: number
+  day: string
+  pageviews: number
   unique_visitors: number | null
   user_id: string
+  catalogue_id: string | null
 }
 
 export type PlanRow = {
@@ -69,21 +76,29 @@ export type SubscriptionRow = {
   created_at: string | null
 }
 
-// prompts + ocr share the same shape (an AI/feature usage event).
-export type FeatureEventRow = {
-  user_id: string | null
-  catalogue: string
-  datetime: string | null
+// One AI assistant turn from the `ai_credits` ledger.
+export type AiCreditRow = {
+  user_id: string
+  catalogue_id: string | null
+  kind: string
+  credits: number
+  refunded_at: string | null
+  created_at: string
 }
 
 export type QrConfigRow = {
-  catalogue: string
+  catalogue_id: string
   created_at: string | null
 }
 
-export type NewsletterRow = {
-  owner_id: string
-  catalogue_id: string | null
+// A visitor who signed up through a catalogue's newsletter footer.
+export type CatalogueSubscriberRow = {
+  catalogue_id: string
+  created_at: string | null
+}
+
+export type UserThemeRow = {
+  user_id: string
   created_at: string | null
 }
 
@@ -93,11 +108,11 @@ export type DashboardData = {
   analytics: AnalyticsRow[]
   plans: PlanRow[]
   subscriptions: SubscriptionRow[]
-  prompts: FeatureEventRow[]
-  ocr: FeatureEventRow[]
+  aiCredits: AiCreditRow[]
   qrConfigs: QrConfigRow[]
-  newsletter: NewsletterRow[]
-  productNewsletterCount: number
+  catalogueSubscribers: CatalogueSubscriberRow[]
+  userThemes: UserThemeRow[]
+  newsletterSubscriberCount: number
 }
 
 export type GrowthSeries = {
@@ -137,7 +152,7 @@ export type Engagement = {
 export type ContentDepth = {
   avgSections: number
   avgItems: number
-  completeness: Bucket[] // % of catalogues with logo / contact / appearance / partners / tags
+  completeness: Bucket[] // % of catalogues with logo / contact / legal / SEO / partners / tags
 }
 
 export type Freshness = {
@@ -165,14 +180,48 @@ export type Revenue = {
   pricesConfigured: boolean
 }
 
+export type FeatureAdoption = {
+  key: FeatureKey
+  label: string
+  group: FeatureGroup
+  catalogues: number // catalogues using the feature
+  pctCatalogues: number // % of all catalogues
+  owners: number // distinct users with at least one such catalogue
+}
+
 export type Features = {
-  adoption: Bucket[] // usage volume per feature
-  aiCataloguePct: number // % of catalogues created via AI source
-  qrAdoptionPct: number // % of catalogues with a QR config
-  usageOverTime: {
+  adoption: FeatureAdoption[] // all-time snapshot, in FEATURES order
+  totalCatalogues: number
+  trackedCatalogues: number // with Google Analytics and/or Meta Pixel
+  ai: {
+    turns: number
+    users: number
+    userPct: number // % of users with at least one catalogue
+    creditsSpent: number // net of refunds
+    refundRate: number // % of turns refunded
+    topUsers: Ranking[] // by credits spent
+    overTime: {
+      date: string
+      "AI turns": number
+      "AI catalogues": number
+      "OCR imports": number
+    }[]
+  }
+  themes: {
+    popularity: Bucket[] // catalogues per theme
+    savedThemes: number
+    usersWithSavedThemes: number
+  }
+  leads: {
+    subscribers: number // catalogue newsletter signups in range
+    marketingSignups: number // Quicktalog's own newsletter, all-time
+    qrCodes: number
+  }
+  activityOverTime: {
     date: string
-    "AI generations": number
-    "OCR scans": number
+    "QR codes": number
+    "Saved themes": number
+    "Newsletter signups": number
   }[]
 }
 

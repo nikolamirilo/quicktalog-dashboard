@@ -1,59 +1,80 @@
-import { cookies } from "next/headers"
+import { connection } from "next/server"
 
-import { createClient } from "@/utils/supabase/server"
+import { query } from "@/lib/db"
 
 import Dashboard from "./_dashboard/Dashboard"
-import { aggregate } from "./_dashboard/aggregate"
+import { aggregate, type RawCatalogue } from "./_dashboard/aggregate"
+import type {
+  AiCreditRow,
+  AnalyticsRow,
+  CatalogueSubscriberRow,
+  PlanRow,
+  QrConfigRow,
+  SubscriptionRow,
+  UserRow,
+  UserThemeRow,
+} from "./_dashboard/types"
 
 export default async function Page() {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  // Always render on request: the data comes from the database, not from
+  // anything Next.js can see changing.
+  await connection()
 
   const [
-    usersRes,
-    cataloguesRes,
-    analyticsRes,
-    plansRes,
-    subscriptionsRes,
-    promptsRes,
-    ocrRes,
-    qrConfigsRes,
-    newsletterRes,
-    productNewsletterRes,
+    users,
+    catalogues,
+    analytics,
+    plans,
+    subscriptions,
+    aiCredits,
+    qrConfigs,
+    catalogueSubscribers,
+    userThemes,
+    newsletterCount,
   ] = await Promise.all([
-    supabase.from("users").select("id, email, name, created_at, plan_id, customer_id"),
-    supabase
-      .from("catalogues")
-      .select(
-        "id, name, status, source, language, business_type, created_by, created_at, updated_at, content, logo, contact, appearance, partners, tags",
-      ),
-    supabase
-      .from("analytics")
-      .select("date, current_url, pageview_count, unique_visitors, user_id"),
-    supabase.from("plans").select("id, name"),
-    supabase
-      .from("subscriptions")
-      .select(
-        "subscription_id, subscription_status, price_id, scheduled_change, customer_id, created_at",
-      ),
-    supabase.from("prompts").select("user_id, catalogue, datetime"),
-    supabase.from("ocr").select("user_id, catalogue, datetime"),
-    supabase.from("qr_configs").select("catalogue, created_at"),
-    supabase.from("newsletter").select("owner_id, catalogue_id, created_at"),
-    supabase.from("product_newsletter").select("id"),
+    query<UserRow>(
+      "select id, email, name, created_at, plan_id, customer_id from public.users",
+    ),
+    query<RawCatalogue>(
+      `select id, name, status, source, language, business_type, user_id,
+              created_at, updated_at, content, logo, contact, legal, metadata,
+              appearance, header, footer, partners, tags
+         from public.catalogues`,
+    ),
+    query<AnalyticsRow>(
+      "select day, pageviews, unique_visitors, user_id, catalogue_id from public.analytics",
+    ),
+    query<PlanRow>("select id, name from public.plans"),
+    query<SubscriptionRow>(
+      `select subscription_id, subscription_status, price_id, scheduled_change,
+              customer_id, created_at
+         from public.subscriptions`,
+    ),
+    query<AiCreditRow>(
+      `select user_id, catalogue_id, kind, credits, refunded_at, created_at
+         from public.ai_credits`,
+    ),
+    query<QrConfigRow>("select catalogue_id, created_at from public.qr_configs"),
+    query<CatalogueSubscriberRow>(
+      "select catalogue_id, created_at from public.catalogue_subscribers",
+    ),
+    query<UserThemeRow>("select user_id, created_at from public.user_themes"),
+    query<{ count: number }>(
+      "select count(*)::int as count from public.newsletter_subscribers",
+    ),
   ])
 
   const data = aggregate({
-    users: usersRes.data ?? [],
-    catalogues: cataloguesRes.data ?? [],
-    analytics: analyticsRes.data ?? [],
-    plans: plansRes.data ?? [],
-    subscriptions: subscriptionsRes.data ?? [],
-    prompts: promptsRes.data ?? [],
-    ocr: ocrRes.data ?? [],
-    qrConfigs: qrConfigsRes.data ?? [],
-    newsletter: newsletterRes.data ?? [],
-    productNewsletter: productNewsletterRes.data ?? [],
+    users,
+    catalogues,
+    analytics,
+    plans,
+    subscriptions,
+    aiCredits,
+    qrConfigs,
+    catalogueSubscribers,
+    userThemes,
+    newsletterSubscriberCount: newsletterCount[0]?.count ?? 0,
   })
 
   return <Dashboard data={data} />

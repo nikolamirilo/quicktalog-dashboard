@@ -232,7 +232,7 @@ export default function InsightsTab({
       {/* Where the traffic actually came from */}
       <SectionHeading
         title="Where the views land"
-        subtitle="Traffic on the cohort's catalogues, attributed by URL match"
+        subtitle="Traffic on the cohort's catalogues, attributed by catalogue"
       />
       <section
         key={`${animationKey}-ins-views`}
@@ -360,8 +360,8 @@ export default function InsightsTab({
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Views are counted from analytics rows owned by users who signed up in
           this period. The category and source breakdowns only include views
-          that could be matched back to a specific catalogue by URL, which is
-          why they can total less than the headline figure.
+          recorded against a specific catalogue, which is why they can total
+          less than the headline figure.
         </p>
       </Card>
     </div>
