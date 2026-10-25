@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans"; // import font
+import { Inter_Tight, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+
+// The Quicktalog product fonts, set up the same way as in the app.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta-sans",
+  display: "swap",
+});
+
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Quicktalog Dashboard",
@@ -26,8 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // add font to className, also add antialiased and dark mode
-    <html lang="en" className={`${GeistSans.className} antialiased dark:bg-gray-950`}>
+    <html lang="en" className={`${plusJakartaSans.variable} ${interTight.variable}`}>
       <body>{children}</body>
     </html>
   );

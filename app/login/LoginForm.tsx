@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useActionState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 
 import { setAuthenticated } from "@/lib/auth"
@@ -25,24 +26,32 @@ export default function LoginForm({ next }: { next: string }) {
   const errorMessage = state && "error" in state ? state.error : undefined
   const succeeded = !!(state && "ok" in state && state.ok)
 
+  const inputCls =
+    "h-12 w-full rounded-md border-[1.5px] border-line-strong bg-card px-3.5 text-base text-ink transition-[border-color,box-shadow] placeholder:text-placeholder hover:border-line-hover focus-visible:border-amber focus-visible:ring-4 focus-visible:ring-amber/25 focus-visible:outline-none"
+
   return (
-    <main className="grid min-h-screen place-items-center bg-gray-50 px-4 dark:bg-gray-950">
+    <main className="grid min-h-screen place-items-center bg-bg px-5">
       <div className="w-full max-w-sm animate-chart-in">
-        <div className="mb-6 text-center">
-          <p className="text-xs font-medium tracking-widest text-gray-500 uppercase dark:text-gray-400">
-            Sign in
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-50">
-            Quicktalog admin
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image
+            src="/logo.svg"
+            alt="Quicktalog"
+            width={1064}
+            height={387}
+            priority
+            className="h-[38px] w-auto"
+          />
+          <h1 className="mt-6 text-card-title font-bold text-ink">
+            Sign in to the admin dashboard
           </h1>
         </div>
 
         <form
           action={action}
-          className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+          className="space-y-4 rounded-lg border border-line bg-card p-[22px] shadow-card"
         >
-          <label className="block text-sm">
-            <span className="mb-1 block text-gray-700 dark:text-gray-300">
+          <label className="block">
+            <span className="mb-[7px] block text-sm font-semibold text-ink">
               Username
             </span>
             <input
@@ -51,12 +60,13 @@ export default function LoginForm({ next }: { next: string }) {
               required
               autoComplete="username"
               autoFocus
-              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50 dark:focus:border-gray-600 dark:focus:ring-gray-700"
+              aria-invalid={!!errorMessage}
+              className={inputCls}
             />
           </label>
 
-          <label className="block text-sm">
-            <span className="mb-1 block text-gray-700 dark:text-gray-300">
+          <label className="block">
+            <span className="mb-[7px] block text-sm font-semibold text-ink">
               Password
             </span>
             <input
@@ -64,22 +74,26 @@ export default function LoginForm({ next }: { next: string }) {
               type="password"
               required
               autoComplete="current-password"
-              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50 dark:focus:border-gray-600 dark:focus:ring-gray-700"
+              aria-invalid={!!errorMessage}
+              className={inputCls}
             />
           </label>
 
           <input type="hidden" name="next" value={next} />
 
           {errorMessage && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
-              {errorMessage}
+            <p
+              role="alert"
+              className="rounded-md bg-red-soft px-3.5 py-2.5 text-[13px] text-red"
+            >
+              <b className="font-semibold">Sign-in failed.</b> {errorMessage}
             </p>
           )}
 
           <button
             type="submit"
             disabled={pending || succeeded}
-            className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-50 dark:text-gray-900 dark:hover:bg-gray-200"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-amber px-[22px] text-[15px] font-semibold text-ink shadow-amber transition duration-200 hover:-translate-y-0.5 hover:bg-amber-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
             {pending
               ? "Signing in..."

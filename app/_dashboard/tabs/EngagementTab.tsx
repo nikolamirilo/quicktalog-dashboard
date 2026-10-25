@@ -38,7 +38,6 @@ export default function EngagementTab({
           label="Activation rate"
           value={pct(activation.activationRate)}
           hint="new users who created a catalogue"
-          accent="blue"
         />
         <KpiCard
           label="Time to first catalogue"
@@ -48,19 +47,16 @@ export default function EngagementTab({
               : `${activation.medianTtvDays} d`
           }
           hint="median, signup → first catalogue"
-          accent="violet"
         />
         <KpiCard
           label="Ghost users"
           value={number(creators.ghostUsers)}
           hint={`${pct(creators.ghostPct)} of all users · 0 catalogues`}
-          accent="amber"
         />
         <KpiCard
           label="Dead catalogues"
           value={pct(engagement.deadPct)}
           hint="published, 0 views this period"
-          accent="pink"
         />
       </section>
 
@@ -72,9 +68,8 @@ export default function EngagementTab({
           <RankingList
             rows={toRanking(activation.funnel)}
             valueLabel="Users"
-            colorClass="bg-blue-500"
           />
-          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-4 text-[13px] text-ink-3">
             {pct(activation.publishRate)} of new catalogues are published ·{" "}
             {pct(activation.visitorRate)} of publishers got a visitor
           </p>
@@ -84,7 +79,7 @@ export default function EngagementTab({
             data={activation.rateByCohort}
             index="date"
             categories={["Activation %"]}
-            colors={["blue"]}
+            colors={["amber"]}
             valueFormatter={pct}
             showLegend={false}
             yAxisWidth={44}
@@ -102,7 +97,7 @@ export default function EngagementTab({
             data={creators.distribution}
             index="name"
             categories={["value"]}
-            colors={["violet"]}
+            colors={["amber"]}
             showLegend={false}
             valueFormatter={number}
             yAxisWidth={44}
@@ -114,7 +109,7 @@ export default function EngagementTab({
             data={engagement.viewsBuckets}
             index="name"
             categories={["value"]}
-            colors={["emerald"]}
+            colors={["amber"]}
             showLegend={false}
             valueFormatter={number}
             yAxisWidth={44}
@@ -125,7 +120,6 @@ export default function EngagementTab({
           <RankingList
             rows={topUsersByCatalogues}
             valueLabel="Catalogues"
-            colorClass="bg-blue-500"
           />
         </ChartCard>
       </section>
@@ -134,14 +128,14 @@ export default function EngagementTab({
         <Card>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+              <h3 className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
                 Active catalogues over time
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              </h3>
+              <p className="text-[13px] text-ink-3">
                 Catalogues receiving ≥1 view per period
               </p>
             </div>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            <span className="inline-flex h-7 items-center rounded-full bg-amber-soft px-3 text-[13px] font-bold text-amber-ink">
               Top 10% = {pct(engagement.paretoTopShare)} of views ·{" "}
               {engagement.repeatRatio}× views/visitor
             </span>
@@ -150,7 +144,7 @@ export default function EngagementTab({
             data={engagement.activeOverTime}
             index="date"
             categories={["Active catalogues"]}
-            colors={["emerald"]}
+            colors={["amber"]}
             valueFormatter={number}
             showLegend={false}
             yAxisWidth={44}

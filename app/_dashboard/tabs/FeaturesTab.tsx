@@ -32,9 +32,9 @@ function AdoptionTable({ rows }: { rows: FeatureAdoption[] }) {
       {groups.map((g) => (
         <div key={g.group}>
           <div
-            className={`${COLUMNS} mb-2 text-[10px] font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400`}
+            className={`${COLUMNS} mb-2 items-baseline text-[12.5px] text-ink-3`}
           >
-            <span>{g.group}</span>
+            <span className="text-[13px] font-bold text-ink">{g.group}</span>
             <span className="text-right">Catalogues</span>
             <span className="text-right">Share</span>
             <span className="text-right">Owners</span>
@@ -43,22 +43,22 @@ function AdoptionTable({ rows }: { rows: FeatureAdoption[] }) {
             {g.rows.map((r) => (
               <li key={r.key}>
                 <div className={`${COLUMNS} items-baseline text-sm`}>
-                  <span className="truncate text-gray-800 dark:text-gray-200">
+                  <span className="break-words text-ink">
                     {r.label}
                   </span>
-                  <span className="text-right tabular-nums text-gray-900 dark:text-gray-50">
+                  <span className="text-right tabular-nums text-ink">
                     {number(r.catalogues)}
                   </span>
-                  <span className="text-right font-medium tabular-nums text-gray-900 dark:text-gray-50">
+                  <span className="text-right font-medium tabular-nums text-ink">
                     {pct(r.pctCatalogues)}
                   </span>
-                  <span className="text-right tabular-nums text-gray-500 dark:text-gray-400">
+                  <span className="text-right tabular-nums text-ink-3">
                     {number(r.owners)}
                   </span>
                 </div>
-                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bg-alt">
                   <div
-                    className="h-full rounded-full bg-pink-500"
+                    className="h-full rounded-full bg-series-amber"
                     style={{ width: `${(r.pctCatalogues / max) * 100}%` }}
                   />
                 </div>
@@ -100,25 +100,21 @@ export default function FeaturesTab({
           label="AI assistant users"
           value={number(ai.users)}
           hint={`${pct(ai.userPct)} of creators · ${number(ai.turns)} turns`}
-          accent="violet"
         />
         <KpiCard
           label="Custom visuals"
           value={number(customVisual?.catalogues ?? 0)}
           hint={`${pct(customVisual?.pctCatalogues ?? 0)} of catalogues · ${number(customVisual?.owners ?? 0)} owners`}
-          accent="pink"
         />
         <KpiCard
           label="Tracking integrations"
           value={number(features.trackedCatalogues)}
           hint={`GA4 ${number(byKey.get("googleAnalytics")?.catalogues ?? 0)} · Meta Pixel ${number(byKey.get("metaPixel")?.catalogues ?? 0)}`}
-          accent="cyan"
         />
         <KpiCard
           label="Custom themes"
           value={number(customTheme?.catalogues ?? 0)}
           hint={`${number(themes.savedThemes)} saved by ${number(themes.usersWithSavedThemes)} users`}
-          accent="amber"
         />
       </section>
 
@@ -172,7 +168,7 @@ export default function FeaturesTab({
               data={ai.overTime}
               index="date"
               categories={["AI turns", "AI catalogues", "OCR imports"]}
-              colors={["violet", "pink", "cyan"]}
+              colors={["amber", "violet", "magenta"]}
               valueFormatter={number}
               yAxisWidth={44}
               className="h-full min-h-56 flex-1"
@@ -184,7 +180,6 @@ export default function FeaturesTab({
           <RankingList
             rows={ai.topUsers}
             valueLabel="Credits"
-            colorClass="bg-violet-500"
           />
         </ChartCard>
       </section>
@@ -202,7 +197,7 @@ export default function FeaturesTab({
               data={features.activityOverTime}
               index="date"
               categories={["QR codes", "Saved themes", "Newsletter signups"]}
-              colors={["blue", "amber", "emerald"]}
+              colors={["amber", "violet", "magenta"]}
               valueFormatter={number}
               yAxisWidth={44}
               className="h-full min-h-56 flex-1"
@@ -226,7 +221,7 @@ export default function FeaturesTab({
               value={number(leads.marketingSignups)}
             />
           </div>
-          <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-3 text-[13px] text-ink-3">
             Newsletter signups follow the selected period; the rest are
             all-time totals.
           </p>

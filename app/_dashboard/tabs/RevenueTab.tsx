@@ -5,10 +5,10 @@ import { AreaChart, BarChart, Card, DonutChart } from "@/components/charts"
 import type { DashboardView } from "../types"
 import {
   ChartCard,
+  colorsFor,
   DonutLegend,
   Empty,
   KpiCard,
-  PLAN_COLORS,
   RankingList,
   SectionHeading,
   money,
@@ -46,25 +46,21 @@ export default function RevenueTab({
               ? `${money(revenue.mrr)} MRR · ${money(revenue.arr ?? 0)} ARR`
               : "MRR needs Paddle price sync"
           }
-          accent="emerald"
         />
         <KpiCard
           label="Paid conversion"
           value={pct(subscriptions.paidConversionPct)}
           hint="active payers ÷ all users"
-          accent="blue"
         />
         <KpiCard
           label="Churn rate"
           value={pct(subscriptions.churnRate)}
           hint="canceled ÷ (active + canceled)"
-          accent="pink"
         />
         <KpiCard
           label="Scheduled cancellations"
           value={number(subscriptions.scheduledCancellations)}
           hint="upcoming churn (early warning)"
-          accent="amber"
         />
       </section>
 
@@ -76,7 +72,6 @@ export default function RevenueTab({
           <RankingList
             rows={toRanking(subscriptions.conversionFunnel)}
             valueLabel="Customers"
-            colorClass="bg-emerald-500"
           />
         </ChartCard>
 
@@ -90,7 +85,7 @@ export default function RevenueTab({
                   data={subscriptions.statusMix}
                   category="name"
                   value="value"
-                  colors={PLAN_COLORS}
+                  colors={colorsFor(subscriptions.statusMix, "subscription")}
                   valueFormatter={number}
                   className="h-44 w-44"
                 />
@@ -98,7 +93,7 @@ export default function RevenueTab({
               <div className="pt-4">
                 <DonutLegend
                   data={subscriptions.statusMix}
-                  colors={PLAN_COLORS}
+                  colors={colorsFor(subscriptions.statusMix, "subscription")}
                 />
               </div>
             </>
@@ -113,7 +108,7 @@ export default function RevenueTab({
               data={revenue.byPlan}
               index="name"
               categories={["value"]}
-              colors={["emerald"]}
+              colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
@@ -126,14 +121,14 @@ export default function RevenueTab({
 
       <div key={`${animationKey}-rev-trend`} className="animate-chart-in">
         <Card>
-          <p className="mb-2 text-base font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="mb-2 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
             New subscriptions over time
-          </p>
+          </h3>
           <AreaChart
             data={subscriptions.newOverTime}
             index="date"
             categories={["New subscriptions"]}
-            colors={["violet"]}
+            colors={["amber"]}
             valueFormatter={number}
             showLegend={false}
             yAxisWidth={44}
@@ -163,22 +158,22 @@ export default function RevenueTab({
                     data={plans.byUsers}
                     category="name"
                     value="value"
-                    colors={PLAN_COLORS}
+                    colors={colorsFor(plans.byUsers, "plan")}
                     valueFormatter={number}
                     className="h-44 w-44"
                   />
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[13px] text-ink-3">
                       Users
                     </p>
-                    <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                       {number(totals.users)}
                     </p>
                   </div>
                 </div>
               </div>
               <div className="pt-4">
-                <DonutLegend data={plans.byUsers} colors={PLAN_COLORS} />
+                <DonutLegend data={plans.byUsers} colors={colorsFor(plans.byUsers, "plan")} />
               </div>
             </>
           )}
@@ -193,7 +188,7 @@ export default function RevenueTab({
                 data={plans.byUsers}
                 index="name"
                 categories={["value"]}
-                colors={["blue"]}
+                colors={["amber"]}
                 showLegend={false}
                 valueFormatter={number}
                 yAxisWidth={40}

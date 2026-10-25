@@ -23,9 +23,9 @@ export default function AuthGuard({
 
   if (!checked) {
     return (
-      <div className="grid min-h-screen place-items-center bg-gray-50 dark:bg-gray-950">
+      <div className="grid min-h-screen place-items-center bg-bg">
         <div
-          className="size-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700 dark:border-gray-700 dark:border-t-gray-300"
+          className="size-8 animate-spin rounded-full border-2 border-line-strong border-t-amber"
           aria-label="Loading"
         />
       </div>

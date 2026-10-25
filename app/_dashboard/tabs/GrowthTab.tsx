@@ -38,25 +38,21 @@ export default function GrowthTab({
           label="New users"
           value={number(totals.users)}
           hint={`${number(totals.activeUsers)} active (have traffic)`}
-          accent="blue"
         />
         <KpiCard
           label="New catalogues"
           value={number(totals.catalogues)}
           hint={`${number(creationSplit.cataloguesByNewUsers)} by new users · ${number(creationSplit.cataloguesByExistingUsers)} by existing`}
-          accent="violet"
         />
         <KpiCard
           label="Pageviews"
           value={compactNumber(totals.pageviews)}
           hint={`${compactNumber(totals.uniqueVisitors)} unique visitors`}
-          accent="emerald"
         />
         <KpiCard
           label="Existing users"
           value={number(creationSplit.existingUsers)}
           hint={`${number(creationSplit.activeExistingCreators)} created something this period`}
-          accent="gray"
         />
       </section>
 
@@ -76,13 +72,11 @@ export default function GrowthTab({
           label="Catalogues / new user"
           value={decimal(creationSplit.perNewUser)}
           hint={`${number(creationSplit.cataloguesByNewUsers)} ÷ ${number(creationSplit.newUsers)} new users`}
-          accent="blue"
         />
         <KpiCard
           label="Catalogues / existing user"
           value={decimal(creationSplit.perExistingUser)}
           hint={`${number(creationSplit.cataloguesByExistingUsers)} ÷ ${number(creationSplit.existingUsers)} existing users`}
-          accent="amber"
         />
         <KpiCard
           label="From new users"
@@ -94,13 +88,11 @@ export default function GrowthTab({
                 )
               : 0
           }% of catalogues this period`}
-          accent="violet"
         />
         <KpiCard
           label="From existing users"
           value={number(creationSplit.cataloguesByExistingUsers)}
           hint={`${number(creationSplit.activeExistingCreators)} distinct existing creators`}
-          accent="cyan"
         />
       </section>
 
@@ -113,7 +105,7 @@ export default function GrowthTab({
             data={creationSplit.overTime}
             index="date"
             categories={["By new users", "By existing users"]}
-            colors={["blue", "amber"]}
+            colors={["amber", "violet"]}
             type="stacked"
             valueFormatter={number}
             yAxisWidth={44}
@@ -134,17 +126,17 @@ export default function GrowthTab({
         <Card>
           <div className="mb-4 flex items-baseline justify-between">
             <div>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+              <h3 className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
                 Users
-              </p>
-              <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+              </h3>
+              <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                 {number(
                   growth.users.cumulative[growth.users.cumulative.length - 1]
                     ?.Users ?? 0,
                 )}
               </p>
             </div>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+            <span className="inline-flex h-7 items-center rounded-full bg-amber-soft px-3 text-[13px] font-bold text-amber-ink">
               Cumulative
             </span>
           </div>
@@ -152,7 +144,7 @@ export default function GrowthTab({
             data={growth.users.cumulative}
             index="date"
             categories={["Users"]}
-            colors={["blue"]}
+            colors={["amber"]}
             valueFormatter={number}
             showLegend={false}
             yAxisWidth={56}
@@ -164,10 +156,10 @@ export default function GrowthTab({
         <Card>
           <div className="mb-4 flex items-baseline justify-between">
             <div>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+              <h3 className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
                 Catalogues
-              </p>
-              <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+              </h3>
+              <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                 {number(
                   growth.catalogues.cumulative[
                     growth.catalogues.cumulative.length - 1
@@ -175,7 +167,7 @@ export default function GrowthTab({
                 )}
               </p>
             </div>
-            <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+            <span className="inline-flex h-7 items-center rounded-full bg-amber-soft px-3 text-[13px] font-bold text-amber-ink">
               Cumulative
             </span>
           </div>
@@ -183,7 +175,7 @@ export default function GrowthTab({
             data={growth.catalogues.cumulative}
             index="date"
             categories={["Catalogues"]}
-            colors={["violet"]}
+            colors={["amber"]}
             valueFormatter={number}
             showLegend={false}
             yAxisWidth={56}
@@ -198,14 +190,14 @@ export default function GrowthTab({
         className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
         <Card>
-          <p className="mb-2 text-base font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="mb-2 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
             New users
-          </p>
+          </h3>
           <BarChart
             data={growth.users.monthly}
             index="date"
             categories={["Users"]}
-            colors={["blue"]}
+            colors={["amber"]}
             showLegend={false}
             valueFormatter={number}
             yAxisWidth={40}
@@ -213,14 +205,14 @@ export default function GrowthTab({
           />
         </Card>
         <Card>
-          <p className="mb-2 text-base font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="mb-2 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
             New catalogues
-          </p>
+          </h3>
           <BarChart
             data={growth.catalogues.monthly}
             index="date"
             categories={["Catalogues"]}
-            colors={["violet"]}
+            colors={["amber"]}
             showLegend={false}
             valueFormatter={number}
             yAxisWidth={40}
@@ -239,7 +231,7 @@ export default function GrowthTab({
           data={pageviewsSeries}
           index="date"
           categories={["Pageviews", "Unique visitors"]}
-          colors={["emerald", "cyan"]}
+          colors={["amber", "violet"]}
           valueFormatter={number}
           yAxisWidth={56}
           startEndOnly
