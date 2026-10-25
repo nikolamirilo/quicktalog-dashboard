@@ -2,7 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Set these in `.env.local`:
+
+```bash
+# Postgres connection string of the Quicktalog database (Supabase → Connect).
+# The pooler URL (port 6543) is recommended on serverless hosts.
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<host>:6543/postgres
+ADMIN_USERNAME=...
+ADMIN_PASSWORD=...
+```
+
+Then run the development server:
 
 ```bash
 npm run dev

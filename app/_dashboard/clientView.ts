@@ -1,3 +1,4 @@
+import { FEATURES } from "./features"
 import type {
   Bucket,
   CataloguePoint,
@@ -150,12 +151,12 @@ export function computeView(
     inUserRange(c.created_at),
   )
   const analyticsInRange = data.analytics.filter(
-    (a) => a.date >= startISO && a.date <= endISO,
+    (a) => a.day >= startISO && a.day <= endISO,
   )
 
   // Totals — scoped to the selected range
   const totalPv = analyticsInRange.reduce(
-    (s, a) => s + (a.pageview_count ?? 0),
+    (s, a) => s + (a.pageviews ?? 0),
     0,
   )
   const totalUv = analyticsInRange.reduce(
@@ -208,10 +209,10 @@ export function computeView(
       if (catsByDay.has(k)) catsByDay.set(k, catsByDay.get(k)! + 1)
     }
     for (const a of analyticsInRange) {
-      const k = a.date.slice(0, 10)
+      const k = a.day.slice(0, 10)
       const b = pvByDay.get(k)
       if (!b) continue
-      b.pv += a.pageview_count ?? 0
+      b.pv += a.pageviews ?? 0
       b.uv += a.unique_visitors ?? 0
     }
 
@@ -254,10 +255,10 @@ export function computeView(
       if (catsByMonth.has(k)) catsByMonth.set(k, catsByMonth.get(k)! + 1)
     }
     for (const a of analyticsInRange) {
-      const k = a.date.slice(0, 7)
+      const k = a.day.slice(0, 7)
       const b = pvByMonth.get(k)
       if (!b) continue
-      b.pv += a.pageview_count ?? 0
+      b.pv += a.pageviews ?? 0
       b.uv += a.unique_visitors ?? 0
     }
 
@@ -316,50 +317,24 @@ export function computeView(
     .filter((b) => b.value > 0)
     .sort((a, b) => b.value - a.value)
 
-  // Pageviews + unique visitors attributed to catalogues. Match URLs against
-  // all known catalogues (not just ones created in range), longest name first,
-  // so a catalogue created earlier still surfaces when it's getting traffic.
-  const pvByUrl = new Map<string, number>()
-  const uvByUrl = new Map<string, number>()
-  for (const a of analyticsInRange) {
-    pvByUrl.set(
-      a.current_url,
-      (pvByUrl.get(a.current_url) ?? 0) + (a.pageview_count ?? 0),
-    )
-    uvByUrl.set(
-      a.current_url,
-      (uvByUrl.get(a.current_url) ?? 0) + (a.unique_visitors ?? 0),
-    )
-  }
-  const cataloguesByLen = [...data.catalogues].sort(
-    (a, b) => b.name.length - a.name.length,
-  )
-  const catalogueViews = new Map<string, number>()
-  const urlToCat = new Map<string, string>()
-  // Same attribution, keyed by catalogue id — names are not guaranteed unique
-  // and the insights tab needs to join views back onto a specific row.
+  // Pageviews attributed to catalogues through `analytics.catalogue_id`,
+  // across all known catalogues (not just ones created in range), so a
+  // catalogue created earlier still surfaces when it's getting traffic.
+  const catalogueById = new Map(data.catalogues.map((c) => [c.id, c]))
   const viewsByCatId = new Map<string, number>()
-  const visitorsByCatId = new Map<string, number>()
-  for (const [url, pv] of pvByUrl) {
-    const lower = url.toLowerCase()
-    for (const c of cataloguesByLen) {
-      if (!c.name) continue
-      if (lower.includes(c.name.toLowerCase())) {
-        catalogueViews.set(c.name, (catalogueViews.get(c.name) ?? 0) + pv)
-        urlToCat.set(url, c.name)
-        viewsByCatId.set(c.id, (viewsByCatId.get(c.id) ?? 0) + pv)
-        visitorsByCatId.set(
-          c.id,
-          (visitorsByCatId.get(c.id) ?? 0) + (uvByUrl.get(url) ?? 0),
-        )
-        break
-      }
-    }
+  for (const a of analyticsInRange) {
+    if (!a.catalogue_id) continue
+    viewsByCatId.set(
+      a.catalogue_id,
+      (viewsByCatId.get(a.catalogue_id) ?? 0) + (a.pageviews ?? 0),
+    )
   }
-  const topCataloguesByPageviews: Ranking[] = Array.from(
-    catalogueViews.entries(),
-  )
-    .map(([name, value]) => ({ id: name, name, value }))
+  const topCataloguesByPageviews: Ranking[] = Array.from(viewsByCatId.entries())
+    .map(([id, value]) => ({
+      id,
+      name: catalogueById.get(id)?.name ?? id.slice(0, 8),
+      value,
+    }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 8)
 
@@ -368,35 +343,39 @@ export function computeView(
   const cataloguesByUser = new Map<string, number>()
   for (const c of cataloguesInRange) {
     cataloguesByUser.set(
-      c.created_by,
-      (cataloguesByUser.get(c.created_by) ?? 0) + 1,
+      c.user_id,
+      (cataloguesByUser.get(c.user_id) ?? 0) + 1,
     )
   }
-  const topUsersByCatalogues: Ranking[] = Array.from(cataloguesByUser.entries())
-    .map(([id, count]) => {
-      const u = userById.get(id)
-      const label = u?.name?.trim() || u?.email || id.slice(0, 8)
-      return {
-        id,
-        name: label,
-        value: count,
-        meta: u?.email && u?.name ? u.email : undefined,
-      }
-    })
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8)
+  // Top 8 users by a per-user count, labelled by name, then email.
+  const rankUsers = (counts: Map<string, number>): Ranking[] =>
+    Array.from(counts.entries())
+      .map(([id, count]) => {
+        const u = userById.get(id)
+        const label = u?.name?.trim() || u?.email || id.slice(0, 8)
+        return {
+          id,
+          name: label,
+          value: count,
+          meta: u?.email && u?.name ? u.email : undefined,
+        }
+      })
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8)
+  const topUsersByCatalogues = rankUsers(cataloguesByUser)
 
   // ── Per-user catalogue facts (used by activation + creators) ──────────────
   const firstCatByUser = new Map<string, number>()
   const publishedByUser = new Set<string>()
   const catCountByUser = new Map<string, number>()
-  const isPublished = (s: string | null) => (s ?? "").toLowerCase() === "published"
+  // A published (live) catalogue has the `active` status.
+  const isPublished = (s: string | null) => (s ?? "").toLowerCase() === "active"
   for (const c of data.catalogues) {
     const t = new Date(c.created_at).getTime()
-    const prev = firstCatByUser.get(c.created_by)
-    if (prev === undefined || t < prev) firstCatByUser.set(c.created_by, t)
-    if (isPublished(c.status)) publishedByUser.add(c.created_by)
-    catCountByUser.set(c.created_by, (catCountByUser.get(c.created_by) ?? 0) + 1)
+    const prev = firstCatByUser.get(c.user_id)
+    if (prev === undefined || t < prev) firstCatByUser.set(c.user_id, t)
+    if (isPublished(c.status)) publishedByUser.add(c.user_id)
+    catCountByUser.set(c.user_id, (catCountByUser.get(c.user_id) ?? 0) + 1)
   }
   const ownersWithTraffic = new Set(analyticsInRange.map((a) => a.user_id))
 
@@ -482,7 +461,7 @@ export function computeView(
   const pubViews: number[] = []
   let cataloguesWithTraffic = 0
   for (const c of publishedCats) {
-    const pv = catalogueViews.get(c.name) ?? 0
+    const pv = viewsByCatId.get(c.id) ?? 0
     pubViews.push(pv)
     if (pv > 0) cataloguesWithTraffic++
   }
@@ -493,17 +472,15 @@ export function computeView(
     { name: "51–200", test: (v) => v >= 51 && v <= 200 },
     { name: "200+", test: (v) => v > 200 },
   ]
-  const sortedViews = [...catalogueViews.values()].sort((a, b) => b - a)
+  const sortedViews = [...viewsByCatId.values()].sort((a, b) => b - a)
   const totalCatPv = sortedViews.reduce((s, v) => s + v, 0)
   const paretoTopN = Math.max(1, Math.ceil(sortedViews.length * 0.1))
   const activeSets = new Map<string, Set<string>>(
     periods.map((p) => [p, new Set<string>()]),
   )
   for (const a of analyticsInRange) {
-    if ((a.pageview_count ?? 0) <= 0) continue
-    const name = urlToCat.get(a.current_url)
-    if (!name) continue
-    activeSets.get(periodKeyOf(a.date))?.add(name)
+    if ((a.pageviews ?? 0) <= 0 || !a.catalogue_id) continue
+    activeSets.get(periodKeyOf(a.day))?.add(a.catalogue_id)
   }
   const engagement = {
     publishedCatalogues: publishedCount,
@@ -545,7 +522,8 @@ export function computeView(
     completeness: [
       { name: "Logo", value: pctOfCat(cataloguesInRange.filter((c) => c.hasLogo).length) },
       { name: "Contact", value: pctOfCat(cataloguesInRange.filter((c) => c.hasContact).length) },
-      { name: "Appearance", value: pctOfCat(cataloguesInRange.filter((c) => c.hasAppearance).length) },
+      { name: "Legal info", value: pctOfCat(cataloguesInRange.filter((c) => c.hasLegal).length) },
+      { name: "SEO", value: pctOfCat(cataloguesInRange.filter((c) => c.hasSeo).length) },
       { name: "Partners", value: pctOfCat(cataloguesInRange.filter((c) => c.hasPartners).length) },
       { name: "Tags", value: pctOfCat(cataloguesInRange.filter((c) => c.tagCount > 0).length) },
     ],
@@ -655,44 +633,131 @@ export function computeView(
     pricesConfigured,
   }
 
-  // 10. Feature adoption (AI / OCR / QR / lead capture)
-  const qrCatalogues = new Set(data.qrConfigs.map((q) => q.catalogue)).size
-  const aiCatalogues = data.catalogues.filter((c) =>
-    (c.source ?? "").toLowerCase().includes("ai"),
-  ).length
-  const featByPeriod = new Map<string, { ai: number; ocr: number }>(
-    periods.map((p) => [p, { ai: 0, ocr: 0 }]),
+  // 10. Feature adoption. Which features a catalogue uses is a snapshot of its
+  // current settings, so adoption is all-time; AI usage and the activity
+  // series follow the selected period.
+  const totalCatalogues = data.catalogues.length
+  const adoption = FEATURES.map((f) => {
+    const using = data.catalogues.filter((c) => c.features.includes(f.key))
+    return {
+      key: f.key,
+      label: f.label,
+      group: f.group,
+      catalogues: using.length,
+      pctCatalogues: totalCatalogues
+        ? round1((using.length / totalCatalogues) * 100)
+        : 0,
+      owners: new Set(using.map((c) => c.user_id)).size,
+    }
+  })
+
+  // AI assistant turns. A refunded turn failed and gave its credits back, so
+  // it counts as an attempt but not as credits spent.
+  const aiInRange = data.aiCredits.filter((a) => isoInRange(a.created_at))
+  const aiRefunded = aiInRange.filter((a) => a.refunded_at != null).length
+  const aiCreditsByUser = new Map<string, number>()
+  for (const a of aiInRange) {
+    if (a.refunded_at != null) continue
+    aiCreditsByUser.set(
+      a.user_id,
+      (aiCreditsByUser.get(a.user_id) ?? 0) + (a.credits ?? 0),
+    )
+  }
+  const aiUsers = new Set(aiInRange.map((a) => a.user_id)).size
+  const aiByPeriod = new Map<string, { turns: number; ai: number; ocr: number }>(
+    periods.map((p) => [p, { turns: 0, ai: 0, ocr: 0 }]),
   )
-  for (const p of data.prompts) {
-    if (!isoInRange(p.datetime)) continue
-    const b = featByPeriod.get(periodKeyOf(p.datetime!))
-    if (b) b.ai++
+  for (const a of aiInRange) {
+    const b = aiByPeriod.get(periodKeyOf(a.created_at))
+    if (b) b.turns++
   }
-  for (const o of data.ocr) {
-    if (!isoInRange(o.datetime)) continue
-    const b = featByPeriod.get(periodKeyOf(o.datetime!))
-    if (b) b.ocr++
+  for (const c of cataloguesInRange) {
+    const b = aiByPeriod.get(periodKeyOf(c.created_at))
+    if (!b) continue
+    if (c.source === "ai_prompt") b.ai++
+    else if (c.source === "ocr_import") b.ocr++
   }
+
+  const themeLabel = (t: string) =>
+    t === "custom"
+      ? "Custom"
+      : t === "-"
+        ? "Unknown"
+        : titleCase(t.replace(/^theme-/, ""))
+
+  const activityByPeriod = new Map<
+    string,
+    { qr: number; themes: number; subscribers: number }
+  >(periods.map((p) => [p, { qr: 0, themes: 0, subscribers: 0 }]))
+  const countInto = (
+    rows: { created_at: string | null }[],
+    field: "qr" | "themes" | "subscribers",
+  ) => {
+    let n = 0
+    for (const r of rows) {
+      if (!isoInRange(r.created_at)) continue
+      n++
+      const b = activityByPeriod.get(periodKeyOf(r.created_at!))
+      if (b) b[field]++
+    }
+    return n
+  }
+  countInto(data.qrConfigs, "qr")
+  countInto(data.userThemes, "themes")
+  const subscribersInRange = countInto(data.catalogueSubscribers, "subscribers")
+
   const features = {
-    adoption: [
-      { name: "AI generations", value: data.prompts.length },
-      { name: "OCR scans", value: data.ocr.length },
-      { name: "QR configs", value: data.qrConfigs.length },
-      { name: "Lead captures", value: data.newsletter.length },
-      { name: "Marketing signups", value: data.productNewsletterCount },
-    ],
-    aiCataloguePct: data.catalogues.length
-      ? round1((aiCatalogues / data.catalogues.length) * 100)
-      : 0,
-    qrAdoptionPct: data.catalogues.length
-      ? round1((qrCatalogues / data.catalogues.length) * 100)
-      : 0,
-    usageOverTime: periods.map((p) => {
-      const b = featByPeriod.get(p)!
+    adoption,
+    totalCatalogues,
+    trackedCatalogues: data.catalogues.filter(
+      (c) =>
+        c.features.includes("googleAnalytics") ||
+        c.features.includes("metaPixel"),
+    ).length,
+    ai: {
+      turns: aiInRange.length,
+      users: aiUsers,
+      userPct: catCountByUser.size
+        ? round1((aiUsers / catCountByUser.size) * 100)
+        : 0,
+      creditsSpent: Array.from(aiCreditsByUser.values()).reduce(
+        (s, v) => s + v,
+        0,
+      ),
+      refundRate: aiInRange.length
+        ? round1((aiRefunded / aiInRange.length) * 100)
+        : 0,
+      topUsers: rankUsers(aiCreditsByUser),
+      overTime: periods.map((p) => {
+        const b = aiByPeriod.get(p)!
+        return {
+          date: periodLabel(p),
+          "AI turns": b.turns,
+          "AI catalogues": b.ai,
+          "OCR imports": b.ocr,
+        }
+      }),
+    },
+    themes: {
+      popularity: bucketise(
+        data.catalogues.map((c) => ({ key: c.theme })),
+        themeLabel,
+      ),
+      savedThemes: data.userThemes.length,
+      usersWithSavedThemes: new Set(data.userThemes.map((t) => t.user_id)).size,
+    },
+    leads: {
+      subscribers: subscribersInRange,
+      marketingSignups: data.newsletterSubscriberCount,
+      qrCodes: data.qrConfigs.length,
+    },
+    activityOverTime: periods.map((p) => {
+      const b = activityByPeriod.get(p)!
       return {
         date: periodLabel(p),
-        "AI generations": b.ai,
-        "OCR scans": b.ocr,
+        "QR codes": b.qr,
+        "Saved themes": b.themes,
+        "Newsletter signups": b.subscribers,
       }
     }),
   }
@@ -702,18 +767,18 @@ export function computeView(
   // cohort created in the same period.
   const newUserIds = new Set(usersInRange.map((u) => u.id))
   const cohortCatalogues = cataloguesInRange.filter((c) =>
-    newUserIds.has(c.created_by),
+    newUserIds.has(c.user_id),
   )
-  const cohortActivated = new Set(cohortCatalogues.map((c) => c.created_by)).size
+  const cohortActivated = new Set(cohortCatalogues.map((c) => c.user_id)).size
   const cohortPublished = cohortCatalogues.filter((c) => isPublished(c.status))
 
-  // Views are taken from the analytics rows owned by the cohort, so URLs that
-  // never matched a catalogue name still count towards the headline total.
+  // Views are taken from the analytics rows owned by the cohort, so rows not
+  // tied to a specific catalogue still count towards the headline total.
   let cohortViews = 0
   let cohortVisitors = 0
   for (const a of analyticsInRange) {
     if (!newUserIds.has(a.user_id)) continue
-    cohortViews += a.pageview_count ?? 0
+    cohortViews += a.pageviews ?? 0
     cohortVisitors += a.unique_visitors ?? 0
   }
 
@@ -760,8 +825,8 @@ export function computeView(
   const cohortCatsByUser = new Map<string, number>()
   for (const c of cohortCatalogues) {
     cohortCatsByUser.set(
-      c.created_by,
-      (cohortCatsByUser.get(c.created_by) ?? 0) + 1,
+      c.user_id,
+      (cohortCatsByUser.get(c.user_id) ?? 0) + 1,
     )
   }
 
@@ -831,19 +896,7 @@ export function computeView(
     viewsByCategory: viewsByCategory.slice(0, 8),
     viewsBySource,
     attributedViews,
-    topCreators: Array.from(cohortCatsByUser.entries())
-      .map(([id, count]) => {
-        const u = userById.get(id)
-        const label = u?.name?.trim() || u?.email || id.slice(0, 8)
-        return {
-          id,
-          name: label,
-          value: count,
-          meta: u?.email && u?.name ? u.email : undefined,
-        }
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8),
+    topCreators: rankUsers(cohortCatsByUser),
     topCatalogues: cohortCatalogues
       .map((c) => ({
         id: c.id,
@@ -874,8 +927,8 @@ export function computeView(
   const cataloguesByExisting = cataloguesInRange.length - cataloguesByNew
   const activeExistingCreators = new Set(
     cataloguesInRange
-      .filter((c) => !newUserIds.has(c.created_by))
-      .map((c) => c.created_by),
+      .filter((c) => !newUserIds.has(c.user_id))
+      .map((c) => c.user_id),
   ).size
   const splitByPeriod = new Map<string, { neu: number; old: number }>(
     periods.map((p) => [p, { neu: 0, old: 0 }]),
@@ -883,7 +936,7 @@ export function computeView(
   for (const c of cataloguesInRange) {
     const b = splitByPeriod.get(periodKeyOf(c.created_at))
     if (!b) continue
-    if (newUserIds.has(c.created_by)) b.neu++
+    if (newUserIds.has(c.user_id)) b.neu++
     else b.old++
   }
   const creationSplit = {

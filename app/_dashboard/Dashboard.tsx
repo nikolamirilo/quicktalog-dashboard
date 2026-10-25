@@ -47,7 +47,11 @@ const TABS = [
     hint: "Composition, content depth and freshness",
   },
   { id: "revenue", label: "Revenue", hint: "Subscriptions, plans and churn" },
-  { id: "features", label: "Features", hint: "AI, OCR, QR and lead capture" },
+  {
+    id: "features",
+    label: "Features",
+    hint: "AI, content blocks, integrations and themes",
+  },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
