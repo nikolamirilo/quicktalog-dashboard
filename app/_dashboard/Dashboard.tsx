@@ -81,17 +81,22 @@ function RangeSelector({
   onChange: (v: RangeKey) => void
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-white p-0.5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div
+      role="group"
+      aria-label="Date range"
+      className="inline-flex gap-0.5 rounded-xl border border-line bg-bg-alt p-[3px]"
+    >
       {RANGES.map((r) => (
         <button
           key={r}
           type="button"
+          aria-pressed={value === r}
           onClick={() => onChange(r)}
           className={cx(
-            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+            "inline-flex min-h-8 items-center justify-center rounded-[9px] px-3 text-[13px] font-semibold whitespace-nowrap transition-colors",
             value === r
-              ? "bg-gray-900 text-white shadow-sm dark:bg-gray-50 dark:text-gray-900"
-              : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50",
+              ? "bg-card text-ink shadow-[0_1px_2px_rgba(22,20,15,0.08),0_2px_6px_rgba(22,20,15,0.06)]"
+              : "text-ink-2 hover:text-ink",
           )}
         >
           {RANGE_LABEL[r]}
@@ -112,7 +117,7 @@ function TabBar({
     <div
       role="tablist"
       aria-label="Analytics sections"
-      className="-mb-px flex gap-1 overflow-x-auto"
+      className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {TABS.map((t) => {
         const active = t.id === value
@@ -127,10 +132,10 @@ function TabBar({
             title={t.hint}
             onClick={() => onChange(t.id)}
             className={cx(
-              "shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              "inline-flex h-10 flex-none items-center rounded-full border px-3.5 text-sm whitespace-nowrap transition-colors",
               active
-                ? "border-gray-900 text-gray-900 dark:border-gray-50 dark:text-gray-50"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200",
+                ? "border-amber bg-amber-soft font-bold text-ink"
+                : "border-line bg-card font-semibold text-ink-2 hover:bg-bg-alt hover:text-ink",
             )}
           >
             {t.label}
@@ -170,11 +175,11 @@ function DatePicker({
   const dirty = draftStart !== start || draftEnd !== end
 
   const inputCls =
-    "rounded-md border border-gray-200 bg-white px-2 py-1 text-gray-900 shadow-sm transition focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-50 dark:focus:border-gray-600 dark:focus:ring-gray-700"
+    "h-10 rounded-md border-[1.5px] border-line-strong bg-card px-3 text-[15px] text-ink transition-[border-color,box-shadow] hover:border-line-hover focus-visible:border-amber focus-visible:ring-4 focus-visible:ring-amber/25 focus-visible:outline-none"
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-2 text-sm font-semibold text-ink">
         From
         <input
           type="date"
@@ -184,7 +189,7 @@ function DatePicker({
           className={inputCls}
         />
       </label>
-      <label className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+      <label className="flex items-center gap-2 text-sm font-semibold text-ink">
         To
         <input
           type="date"
@@ -199,12 +204,7 @@ function DatePicker({
         type="button"
         disabled={!valid || !dirty}
         onClick={() => onApply(draftStart, draftEnd)}
-        className={cx(
-          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-          valid && dirty
-            ? "bg-gray-900 text-white hover:bg-gray-800 dark:bg-gray-50 dark:text-gray-900 dark:hover:bg-gray-200"
-            : "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600",
-        )}
+        className="inline-flex h-9 items-center rounded-full bg-amber px-4 text-sm font-semibold text-ink shadow-amber transition duration-200 hover:-translate-y-0.5 hover:bg-amber-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
       >
         Apply
       </button>
@@ -240,22 +240,25 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <main className="min-h-screen bg-bg pt-[9px] pb-16">
         <Header />
 
-        <div className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+        <div className="mx-auto max-w-[1280px] space-y-6 px-5 pt-8">
           {/* Top-level time range — drives every chart on every tab */}
-          <section className="space-y-4 border-b border-gray-200 dark:border-gray-800">
-            <div className="flex flex-wrap items-end justify-between gap-3">
+          <section className="space-y-5">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-50">
+                <span className="text-sm font-bold text-amber-ink">
+                  Quicktalog admin
+                </span>
+                <h1 className="mt-1 text-title-app font-extrabold text-ink">
                   Analytics
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-1.5 text-[15px] text-ink-2">
                   All metrics reflect the selected period · {start} → {end}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 {range === "CUSTOM" && (
                   <DatePicker
                     start={customStart}

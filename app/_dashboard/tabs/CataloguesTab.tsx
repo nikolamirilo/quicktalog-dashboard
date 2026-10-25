@@ -4,8 +4,8 @@ import { BarChart, DonutChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
 import {
-  CATALOGUE_STATUS_COLORS,
   ChartCard,
+  colorsFor,
   DonutLegend,
   Empty,
   KpiCard,
@@ -48,25 +48,21 @@ export default function CataloguesTab({
           label="New catalogues"
           value={number(totals.catalogues)}
           hint="created in the selected period"
-          accent="violet"
         />
         <KpiCard
           label="Published (all time)"
           value={number(engagement.publishedCatalogues)}
           hint={`${number(engagement.cataloguesWithTraffic)} received traffic`}
-          accent="emerald"
         />
         <KpiCard
           label="Avg content"
           value={`${content.avgSections} / ${content.avgItems}`}
           hint="sections / items per catalogue"
-          accent="cyan"
         />
         <KpiCard
           label="Stale catalogues"
           value={pct(freshness.pctStale)}
           hint="published, untouched for >90 days"
-          accent="amber"
         />
       </section>
 
@@ -85,15 +81,15 @@ export default function CataloguesTab({
                     data={catalogues.byStatus}
                     category="name"
                     value="value"
-                    colors={CATALOGUE_STATUS_COLORS}
+                    colors={colorsFor(catalogues.byStatus, "status")}
                     valueFormatter={number}
                     className="h-44 w-44"
                   />
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[13px] text-ink-3">
                       Total
                     </p>
-                    <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                       {number(totals.catalogues)}
                     </p>
                   </div>
@@ -102,7 +98,7 @@ export default function CataloguesTab({
               <div className="pt-4">
                 <DonutLegend
                   data={catalogues.byStatus}
-                  colors={CATALOGUE_STATUS_COLORS}
+                  colors={colorsFor(catalogues.byStatus, "status")}
                 />
               </div>
             </>
@@ -117,7 +113,7 @@ export default function CataloguesTab({
               data={catalogues.bySource}
               index="name"
               categories={["value"]}
-              colors={["violet"]}
+              colors={["amber"]}
               showLegend={false}
               valueFormatter={number}
               yAxisWidth={40}
@@ -134,7 +130,7 @@ export default function CataloguesTab({
               data={catalogues.byLanguage}
               index="name"
               categories={["value"]}
-              colors={["cyan"]}
+              colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
@@ -157,7 +153,7 @@ export default function CataloguesTab({
             data={content.completeness}
             index="name"
             categories={["value"]}
-            colors={["cyan"]}
+            colors={["amber"]}
             layout="vertical"
             showLegend={false}
             valueFormatter={pct}
@@ -197,7 +193,6 @@ export default function CataloguesTab({
                 value: b.value,
               }))}
               valueLabel="Catalogues"
-              colorClass="bg-pink-500"
             />
           )}
         </ChartCard>
@@ -211,7 +206,6 @@ export default function CataloguesTab({
           <RankingList
             rows={topCataloguesByPageviews}
             valueLabel="Pageviews"
-            colorClass="bg-emerald-500"
           />
         </ChartCard>
       </section>

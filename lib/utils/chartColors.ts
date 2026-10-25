@@ -2,60 +2,51 @@
 
 export type ColorUtility = "bg" | "stroke" | "fill" | "text"
 
+// Quicktalog chart series, in categorical slot order (see the series tokens
+// in app/globals.css). Assign them in this order; never pick by hue.
 export const chartColors = {
-  blue: {
-    bg: "bg-blue-500",
-    stroke: "stroke-blue-500",
-    fill: "fill-blue-500",
-    text: "text-blue-500",
-  },
-  emerald: {
-    bg: "bg-emerald-500",
-    stroke: "stroke-emerald-500",
-    fill: "fill-emerald-500",
-    text: "text-emerald-500",
+  amber: {
+    bg: "bg-series-amber",
+    stroke: "stroke-series-amber",
+    fill: "fill-series-amber",
+    text: "text-series-amber",
   },
   violet: {
-    bg: "bg-violet-500",
-    stroke: "stroke-violet-500",
-    fill: "fill-violet-500",
-    text: "text-violet-500",
+    bg: "bg-series-violet",
+    stroke: "stroke-series-violet",
+    fill: "fill-series-violet",
+    text: "text-series-violet",
   },
-  amber: {
-    bg: "bg-amber-500",
-    stroke: "stroke-amber-500",
-    fill: "fill-amber-500",
-    text: "text-amber-500",
+  magenta: {
+    bg: "bg-series-magenta",
+    stroke: "stroke-series-magenta",
+    fill: "fill-series-magenta",
+    text: "text-series-magenta",
   },
+  green: {
+    bg: "bg-series-green",
+    stroke: "stroke-series-green",
+    fill: "fill-series-green",
+    text: "text-series-green",
+  },
+  blue: {
+    bg: "bg-series-blue",
+    stroke: "stroke-series-blue",
+    fill: "fill-series-blue",
+    text: "text-series-blue",
+  },
+  aqua: {
+    bg: "bg-series-aqua",
+    stroke: "stroke-series-aqua",
+    fill: "fill-series-aqua",
+    text: "text-series-aqua",
+  },
+  // Not a series hue: the folded "Other" bucket.
   gray: {
-    bg: "bg-gray-500",
-    stroke: "stroke-gray-500",
-    fill: "fill-gray-500",
-    text: "text-gray-500",
-  },
-  cyan: {
-    bg: "bg-cyan-500",
-    stroke: "stroke-cyan-500",
-    fill: "fill-cyan-500",
-    text: "text-cyan-500",
-  },
-  pink: {
-    bg: "bg-pink-500",
-    stroke: "stroke-pink-500",
-    fill: "fill-pink-500",
-    text: "text-pink-500",
-  },
-  lime: {
-    bg: "bg-lime-500",
-    stroke: "stroke-lime-500",
-    fill: "fill-lime-500",
-    text: "text-lime-500",
-  },
-  fuchsia: {
-    bg: "bg-fuchsia-500",
-    stroke: "stroke-fuchsia-500",
-    fill: "fill-fuchsia-500",
-    text: "text-fuchsia-500",
+    bg: "bg-ink-3",
+    stroke: "stroke-ink-3",
+    fill: "fill-ink-3",
+    text: "text-ink-3",
   },
 } as const satisfies {
   [color: string]: {
@@ -85,10 +76,10 @@ export const getColorClassName = (
   type: ColorUtility,
 ): string => {
   const fallbackColor = {
-    bg: "bg-gray-500",
-    stroke: "stroke-gray-500",
-    fill: "fill-gray-500",
-    text: "text-gray-500",
+    bg: "bg-ink-3",
+    stroke: "stroke-ink-3",
+    fill: "fill-ink-3",
+    text: "text-ink-3",
   }
   return chartColors[color]?.[type] ?? fallbackColor[type]
 }

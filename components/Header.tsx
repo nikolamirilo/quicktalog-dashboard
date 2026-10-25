@@ -19,32 +19,27 @@ const Header = () => {
     router.replace("/login")
   }
 
+  // The design system's floating pill navbar: white at 80% with a blur.
   return (
-    <div className="border-b border-gray-200 bg-white/60 backdrop-blur dark:border-gray-800 dark:bg-gray-900/60">
-      <div className="mx-auto max-w-7xl px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Image
-              src="/logo.svg"
-              alt="Quicktalog"
-              width={200}
-              height={100}
-              priority
-              className="h-14 w-auto"
-            />
-          </div>
-          {username && (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-50"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
+    <div className="sticky top-[9px] z-20 px-5">
+      <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-3 rounded-full border border-ink/6 bg-card/80 pr-2.5 pl-[18px] shadow-[0_10px_30px_-10px_rgba(22,20,15,0.18),0_2px_6px_rgba(22,20,15,0.05)] backdrop-blur-[14px] backdrop-saturate-[1.6]">
+        <Image
+          src="/logo.svg"
+          alt="Quicktalog"
+          width={1064}
+          height={387}
+          priority
+          className="h-[38px] w-auto"
+        />
+        {username && (
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex h-[42px] items-center rounded-full border-[1.5px] border-amber bg-card px-[18px] text-[14.5px] font-semibold text-ink transition duration-200 hover:-translate-y-0.5 hover:bg-amber-soft active:scale-[0.98]"
+          >
+            Sign out
+          </button>
+        )}
       </div>
     </div>
   )

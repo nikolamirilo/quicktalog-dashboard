@@ -72,9 +72,9 @@ const ChartTooltip = ({
     return (
       <div
         className={cx(
-          "rounded-md border text-sm shadow-md",
-          "border-gray-200 dark:border-gray-800",
-          "bg-white dark:bg-gray-950",
+          "rounded-md border text-sm shadow-hover",
+          "border-line",
+          "bg-card",
         )}
       >
         <div className={cx("space-y-1 px-4 py-2")}>
@@ -94,7 +94,7 @@ const ChartTooltip = ({
                 <p
                   className={cx(
                     "whitespace-nowrap text-right",
-                    "text-gray-700 dark:text-gray-300",
+                    "text-ink-2",
                   )}
                 >
                   {category}
@@ -103,7 +103,7 @@ const ChartTooltip = ({
               <p
                 className={cx(
                   "whitespace-nowrap text-right font-medium tabular-nums",
-                  "text-gray-900 dark:text-gray-50",
+                  "text-ink",
                 )}
               >
                 {valueFormatter(value)}
@@ -236,7 +236,7 @@ const DonutChart = React.forwardRef<HTMLDivElement, DonutChartProps>(
           >
             {showLabel && isDonut && (
               <text
-                className="fill-gray-700 dark:fill-gray-300"
+                className="fill-ink-2"
                 x="50%"
                 y="50%"
                 textAnchor="middle"
@@ -247,7 +247,7 @@ const DonutChart = React.forwardRef<HTMLDivElement, DonutChartProps>(
             )}
             <Pie
               className={cx(
-                "stroke-white dark:stroke-gray-950 [&_.recharts-pie-sector]:outline-hidden",
+                "stroke-card [&_.recharts-pie-sector]:outline-hidden",
                 onValueChange ? "cursor-pointer" : "cursor-default",
               )}
               data={parseData(data, categoryColors, category)}

@@ -5,14 +5,13 @@ import { AreaChart, BarChart, Card, DonutChart, LineChart } from "@/components/c
 import type { DashboardView } from "../types"
 import {
   ChartCard,
+  colorsFor,
   DonutLegend,
   Empty,
   KpiCard,
   KpiInline,
-  PLAN_COLORS,
   RankingList,
   SectionHeading,
-  CATALOGUE_STATUS_COLORS,
   compactNumber,
   decimal,
   number,
@@ -48,25 +47,21 @@ export default function InsightsTab({
           label="New users"
           value={number(insights.newUsers)}
           hint={`${number(insights.activatedUsers)} created a catalogue (${pct(insights.activationRate)})`}
-          accent="blue"
         />
         <KpiCard
           label="Catalogues created"
           value={number(insights.cataloguesCreated)}
           hint={`${number(insights.publishedCatalogues)} published (${pct(insights.publishRate)})`}
-          accent="violet"
         />
         <KpiCard
           label="Catalogues per user"
           value={decimal(insights.cataloguesPerUser)}
           hint="their catalogues ÷ new users · existing users excluded"
-          accent="amber"
         />
         <KpiCard
           label="Total views"
           value={compactNumber(insights.totalViews)}
           hint={`${compactNumber(insights.uniqueVisitors)} unique visitors`}
-          accent="emerald"
         />
       </section>
 
@@ -79,13 +74,11 @@ export default function InsightsTab({
           label="Views per catalogue"
           value={number(insights.viewsPerCatalogue)}
           hint="average across their catalogues"
-          accent="cyan"
         />
         <KpiCard
           label="Views per user"
           value={number(insights.viewsPerUser)}
           hint="average across the cohort"
-          accent="emerald"
         />
         <KpiCard
           label="Time to first catalogue"
@@ -95,13 +88,11 @@ export default function InsightsTab({
               : `${insights.medianTtvDays} d`
           }
           hint="median, signup → first catalogue"
-          accent="violet"
         />
         <KpiCard
           label="Converted to paid"
           value={number(insights.subscribedUsers)}
           hint={`${pct(insights.paidConversionRate)} of new users`}
-          accent="pink"
         />
       </section>
 
@@ -119,7 +110,7 @@ export default function InsightsTab({
               data={insights.overTime}
               index="date"
               categories={["New users", "New catalogues"]}
-              colors={["blue", "violet"]}
+              colors={["amber", "violet"]}
               valueFormatter={number}
               yAxisWidth={44}
               className="h-full min-h-64 flex-1"
@@ -161,7 +152,7 @@ export default function InsightsTab({
               data={insights.byCategory}
               index="name"
               categories={["value"]}
-              colors={["pink"]}
+              colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
@@ -182,22 +173,22 @@ export default function InsightsTab({
                     data={insights.bySource}
                     category="name"
                     value="value"
-                    colors={PLAN_COLORS}
+                    colors={colorsFor(insights.bySource, "source")}
                     valueFormatter={number}
                     className="h-44 w-44"
                   />
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[13px] text-ink-3">
                       Total
                     </p>
-                    <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                       {number(insights.cataloguesCreated)}
                     </p>
                   </div>
                 </div>
               </div>
               <div className="pt-4">
-                <DonutLegend data={insights.bySource} colors={PLAN_COLORS} />
+                <DonutLegend data={insights.bySource} colors={colorsFor(insights.bySource, "source")} />
               </div>
             </>
           )}
@@ -213,7 +204,7 @@ export default function InsightsTab({
                   data={insights.byStatus}
                   category="name"
                   value="value"
-                  colors={CATALOGUE_STATUS_COLORS}
+                  colors={colorsFor(insights.byStatus, "status")}
                   valueFormatter={number}
                   className="h-44 w-44"
                 />
@@ -221,7 +212,7 @@ export default function InsightsTab({
               <div className="pt-4">
                 <DonutLegend
                   data={insights.byStatus}
-                  colors={CATALOGUE_STATUS_COLORS}
+                  colors={colorsFor(insights.byStatus, "status")}
                 />
               </div>
             </>
@@ -256,7 +247,7 @@ export default function InsightsTab({
               data={insights.viewsByCategory}
               index="name"
               categories={["value"]}
-              colors={["emerald"]}
+              colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
@@ -274,7 +265,7 @@ export default function InsightsTab({
               data={insights.viewsBySource}
               index="name"
               categories={["value"]}
-              colors={["cyan"]}
+              colors={["amber"]}
               showLegend={false}
               valueFormatter={number}
               yAxisWidth={48}
@@ -291,7 +282,7 @@ export default function InsightsTab({
               data={insights.byLanguage}
               index="name"
               categories={["value"]}
-              colors={["violet"]}
+              colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
@@ -311,7 +302,6 @@ export default function InsightsTab({
           <RankingList
             rows={insights.topCreators}
             valueLabel="Catalogues"
-            colorClass="bg-blue-500"
           />
         </ChartCard>
 
@@ -319,7 +309,6 @@ export default function InsightsTab({
           <RankingList
             rows={insights.topCatalogues}
             valueLabel="Pageviews"
-            colorClass="bg-emerald-500"
           />
         </ChartCard>
 
@@ -334,22 +323,22 @@ export default function InsightsTab({
                     data={insights.byPlan}
                     category="name"
                     value="value"
-                    colors={PLAN_COLORS}
+                    colors={colorsFor(insights.byPlan, "plan")}
                     valueFormatter={number}
                     className="h-44 w-44"
                   />
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-[13px] text-ink-3">
                       Users
                     </p>
-                    <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-50">
+                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
                       {number(insights.newUsers)}
                     </p>
                   </div>
                 </div>
               </div>
               <div className="pt-4">
-                <DonutLegend data={insights.byPlan} colors={PLAN_COLORS} />
+                <DonutLegend data={insights.byPlan} colors={colorsFor(insights.byPlan, "plan")} />
               </div>
             </>
           )}
@@ -357,7 +346,7 @@ export default function InsightsTab({
       </section>
 
       <Card>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-[13px] text-ink-3">
           Views are counted from analytics rows owned by users who signed up in
           this period. The category and source breakdowns only include views
           recorded against a specific catalogue, which is why they can total
