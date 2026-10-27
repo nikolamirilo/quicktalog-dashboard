@@ -4,6 +4,7 @@
 // for AI turns and QR codes, from the related tables.
 export const FEATURES = [
   { key: "aiAssistant", label: "AI assistant", group: "AI" },
+  { key: "items", label: "Items section", group: "Content blocks" },
   { key: "customVisual", label: "Custom visual", group: "Content blocks" },
   { key: "embedding", label: "External content", group: "Content blocks" },
   { key: "divider", label: "Divider", group: "Content blocks" },
