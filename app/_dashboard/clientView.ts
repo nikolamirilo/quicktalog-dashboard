@@ -385,13 +385,14 @@ export function computeView(
   const visitedUsers = publishedUsers.filter((u) => ownersWithTraffic.has(u.id))
   const publishedInRange = cataloguesInRange.filter((c) => isPublished(c.status))
 
-  // 2. Activation rate over time + time-to-first-catalogue
+  // 2. Activation rate over time + time-to-first-catalogue (in hours)
+  const hourMs = 60 * 60 * 1000
   const ttv: number[] = []
   for (const u of usersInRange) {
     const f = firstCatByUser.get(u.id)
     if (f != null && u.created_at) {
-      const d = (f - new Date(u.created_at).getTime()) / dayMs
-      if (d >= 0) ttv.push(d)
+      const h = (f - new Date(u.created_at).getTime()) / hourMs
+      if (h >= 0) ttv.push(h)
     }
   }
   const cohortMonths = enumerateMonths(start, end)
@@ -420,7 +421,7 @@ export function computeView(
     visitorRate: publishedUsers.length
       ? round1((visitedUsers.length / publishedUsers.length) * 100)
       : 0,
-    medianTtvDays: ttv.length ? round1(median(ttv)) : null,
+    medianTtvHours: ttv.length ? median(ttv) : null,
     rateByCohort: cohortMonths.map((m) => {
       const tot = cohortTotals.get(m) ?? 0
       const act = cohortActive.get(m) ?? 0
@@ -856,7 +857,7 @@ export function computeView(
     paidConversionRate: usersInRange.length
       ? round1((cohortSubscribed / usersInRange.length) * 100)
       : 0,
-    medianTtvDays: activation.medianTtvDays,
+    medianTtvHours: activation.medianTtvHours,
     overTime: periods.map((p) => ({
       date: periodLabel(p),
       "New users": cohortUsersByPeriod.get(p) ?? 0,

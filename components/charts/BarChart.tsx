@@ -672,10 +672,13 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
             ) : null}
             <XAxis
               hide={!showXAxis}
+              // Recharts 3 draws tick labels outside the axis group, so the fill
+              // has to sit on the tick itself to reach them.
               tick={{
                 transform:
                   layout !== "vertical" ? "translate(0, 6)" : undefined,
                 fontSize: 11.5,
+                className: "fill-ink-3",
               }}
               fill=""
               stroke=""
@@ -731,6 +734,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
                     ? "translate(-3, 0)"
                     : "translate(0, 0)",
                 fontSize: 11.5,
+                className: "fill-ink-3",
               }}
               {...(layout !== "vertical"
                 ? {
