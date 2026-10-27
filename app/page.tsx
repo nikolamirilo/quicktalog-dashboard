@@ -36,7 +36,7 @@ export default async function Page() {
       "select id, email, name, created_at, plan_id, customer_id from public.users",
     ),
     query<RawCatalogue>(
-      `select id, name, status, source, language, business_type, user_id,
+      `select id, name, status, language, business_type, user_id,
               created_at, updated_at, content, logo, contact, legal, metadata,
               appearance, header, footer, partners, tags
          from public.catalogues`,
@@ -54,7 +54,15 @@ export default async function Page() {
       `select user_id, catalogue_id, kind, credits, refunded_at, created_at
          from public.ai_credits`,
     ),
-    query<QrConfigRow>("select catalogue_id, created_at from public.qr_configs"),
+    // Read with text comparisons rather than casts, so an odd value in an old
+    // design reads as "no" instead of failing the page.
+    query<QrConfigRow>(
+      `select catalogue_id, created_at,
+              coalesce(config->>'image', '') <> ''
+                and config->>'showLogo' is distinct from 'false' as has_logo,
+              coalesce(config->'frameText'->>'show' = 'true', false) as has_frame
+         from public.qr_configs`,
+    ),
     query<CatalogueSubscriberRow>(
       "select catalogue_id, created_at from public.catalogue_subscribers",
     ),

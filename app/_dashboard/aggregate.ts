@@ -18,7 +18,6 @@ export type RawCatalogue = {
   id: string
   name: string
   status: string | null
-  source: string | null
   language: string | null
   business_type: string | null
   user_id: string
@@ -60,16 +59,16 @@ const hasLogo = (logo: unknown): boolean =>
 
 // `content` is a JSONB array of blocks (items, text, divider, embedding,
 // custom_visual). We count blocks (top-level length), items (sum of any nested
-// array lengths) and collect the block types, without assuming exact shapes.
+// array lengths) and blocks per type key, without assuming exact shapes.
 const deriveContent = (
   content: unknown,
-): { sections: number; items: number; types: Set<string> } => {
-  const types = new Set<string>()
+): { sections: number; items: number; types: Record<string, number> } => {
+  const types: Record<string, number> = {}
   if (!Array.isArray(content)) return { sections: 0, items: 0, types }
   let items = 0
   for (const section of content) {
     const s = asObject(section)
-    if (typeof s.type === "string") types.add(s.type)
+    if (typeof s.type === "string") types[s.type] = (types[s.type] ?? 0) + 1
     for (const v of Object.values(s)) {
       if (Array.isArray(v)) items += v.length
     }
@@ -91,29 +90,43 @@ const isLiveCta = (cta: unknown): boolean => {
   return c.isEnabled === true && isFilled(c.url)
 }
 
+// The custom page background that replaces the theme's, by kind.
+const backgroundOf = (appearance: unknown): string | null => {
+  const background = asObject(asObject(appearance).background)
+  if (background.isEnabled !== true) return null
+  return typeof background.type === "string" && background.type.trim() !== ""
+    ? background.type
+    : "unknown"
+}
+
+// Catalogues saved before the glass effect existed have no level: off.
+const glassLevelOf = (appearance: unknown): number => {
+  const level = Number(asObject(asObject(appearance).glass).level)
+  return Number.isFinite(level) ? Math.min(Math.max(Math.round(level), 0), 3) : 0
+}
+
 const deriveFeatures = (
   c: RawCatalogue,
-  blockTypes: Set<string>,
+  blockTypes: Record<string, number>,
   related: { ai: Set<string>; qr: Set<string> },
 ): FeatureKey[] => {
+  const hasBlock = (type: string) => (blockTypes[type] ?? 0) > 0
   const appearance = asObject(c.appearance)
   const header = asObject(c.header)
   const footer = asObject(c.footer)
   const metadata = asObject(c.metadata)
   const used: Record<FeatureKey, boolean> = {
     aiAssistant: related.ai.has(c.id),
-    aiPrompt: c.source === "ai_prompt",
-    ocrImport: c.source === "ocr_import",
     // `custom_code` is the block's pre-rename key; older rows still carry it.
-    customVisual: blockTypes.has("custom_visual") || blockTypes.has("custom_code"),
-    embedding: blockTypes.has("embedding"),
-    divider: blockTypes.has("divider"),
-    textSection: blockTypes.has("text"),
+    customVisual: hasBlock("custom_visual") || hasBlock("custom_code"),
+    embedding: hasBlock("embedding"),
+    divider: hasBlock("divider"),
+    textSection: hasBlock("text"),
     googleAnalytics: matches(metadata.googleAnalyticsId, GA_ID),
     metaPixel: matches(metadata.metaPixelId, META_PIXEL_ID),
     customTheme: asObject(appearance.theme).type === "custom",
     customBackground: asObject(appearance.background).isEnabled === true,
-    glass: Number(asObject(appearance.glass).level) > 0,
+    glass: glassLevelOf(c.appearance) > 0,
     search: asObject(appearance.search).isEnabled === true,
     overlay: asObject(appearance.overlay).isEnabled === true,
     customHeader: header.type === "custom",
@@ -142,13 +155,13 @@ const shapeCatalogue = (
     id: c.id,
     name: c.name,
     status: c.status,
-    source: c.source,
     language: c.language,
     business_type: c.business_type,
     user_id: c.user_id,
     created_at: c.created_at,
     updated_at: c.updated_at,
     contentSections: sections,
+    sectionTypes: types,
     contentItems: items,
     hasLogo: hasLogo(c.logo),
     hasContact: anyFilled(c.contact, ["phone", "email", "website", "socials"]),
@@ -162,6 +175,8 @@ const shapeCatalogue = (
     hasPartners: Array.isArray(c.partners) && c.partners.length > 0,
     tagCount: Array.isArray(c.tags) ? c.tags.length : 0,
     theme: themeOf(c.appearance),
+    background: backgroundOf(c.appearance),
+    glassLevel: glassLevelOf(c.appearance),
     features: deriveFeatures(c, types, related),
   }
 }
