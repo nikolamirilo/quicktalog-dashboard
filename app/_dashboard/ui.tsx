@@ -218,20 +218,13 @@ export function RankingList({
 export function DonutLegend({
   data,
   colors,
-  columns = 2,
 }: {
   data: { name: string; value: number }[]
   colors: AvailableChartColorsKeys[]
-  columns?: 1 | 2 // 1 when the names are long
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
   return (
-    <ul
-      className={cx(
-        "grid w-full grid-cols-1 gap-x-6 gap-y-2 text-sm",
-        columns === 2 && "sm:grid-cols-2",
-      )}
-    >
+    <ul className="grid w-full grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       {data.map((d, i) => {
         const share = total ? ((d.value / total) * 100).toFixed(1) : "0.0"
         return (
