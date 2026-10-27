@@ -117,6 +117,9 @@ const deriveFeatures = (
   const metadata = asObject(c.metadata)
   const used: Record<FeatureKey, boolean> = {
     aiAssistant: related.ai.has(c.id),
+    // `category` and `container` were merged into `items`; the app still
+    // reads either as an items section.
+    items: hasBlock("items") || hasBlock("category") || hasBlock("container"),
     // `custom_code` is the block's pre-rename key; older rows still carry it.
     customVisual: hasBlock("custom_visual") || hasBlock("custom_code"),
     embedding: hasBlock("embedding"),

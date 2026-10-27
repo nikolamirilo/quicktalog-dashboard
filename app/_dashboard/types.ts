@@ -189,6 +189,14 @@ export type Revenue = {
   pricesConfigured: boolean
 }
 
+// How a feature is set up. "parts" add up to the catalogues using it (or,
+// for integrations, to the catalogues with any); "counts" are separate figures.
+export type FeatureBreakdown = {
+  kind: "parts" | "counts"
+  title: string
+  rows: Bucket[]
+}
+
 export type FeatureAdoption = {
   key: FeatureKey
   label: string
@@ -196,29 +204,10 @@ export type FeatureAdoption = {
   catalogues: number // catalogues using the feature
   pctCatalogues: number // % of all catalogues
   owners: number // distinct users with at least one such catalogue
-}
-
-export type SpotlightKey =
-  | "background"
-  | "glass"
-  | "qr"
-  | "theme"
-  | "integrations"
-
-// One feature looked at closely: how far it has spread, whether new
-// catalogues pick it up, how it is configured and who uses it.
-export type Spotlight = {
-  key: SpotlightKey
-  label: string
-  catalogues: number // using it now (all-time)
-  pctCatalogues: number // % of all catalogues
-  owners: number
   newCatalogues: number // created in range and using it now
   newPct: number // % of catalogues created in range
-  breakdownTitle: string
-  breakdownUnit: string // what the breakdown values count
-  breakdown: Bucket[]
   topUsers: Ranking[] // owners by catalogues using it
+  breakdown: FeatureBreakdown | null
 }
 
 export type SectionTypeUsage = {
@@ -234,7 +223,8 @@ export type SectionTypeUsage = {
 
 export type Features = {
   adoption: FeatureAdoption[] // all-time snapshot, in FEATURES order
-  spotlights: Spotlight[]
+  featuresPerCatalogue: number // average tracked features per catalogue
+  newCatalogues: number // catalogues created in range
   sectionTypes: { rows: SectionTypeUsage[]; totalSections: number }
   totalCatalogues: number
   trackedCatalogues: number // with Google Analytics and/or Meta Pixel

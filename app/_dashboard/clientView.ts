@@ -3,14 +3,14 @@ import type {
   Bucket,
   CatalogueRow,
   CataloguePoint,
+  FeatureAdoption,
+  FeatureBreakdown,
   DashboardData,
   DashboardView,
   Pageview,
   Ranking,
   RangeKey,
   SectionTypeUsage,
-  Spotlight,
-  SpotlightKey,
   SubscriptionRow,
   UserPoint,
 } from "./types"
@@ -638,39 +638,116 @@ export function computeView(
   // current settings, so adoption is all-time; AI usage and the activity
   // series follow the selected period.
   const totalCatalogues = data.catalogues.length
-  const adoption = FEATURES.map((f) => {
-    const using = data.catalogues.filter((c) => c.features.includes(f.key))
+  // Each feature also gets its share among catalogues created in the selected
+  // period (their current settings): above the all-time share means it is
+  // catching on. A few features carry a breakdown of how they are set up.
+  const has = (key: FeatureKey) => (c: CatalogueRow) => c.features.includes(key)
+  const count = (rows: CatalogueRow[], test: (c: CatalogueRow) => boolean) =>
+    rows.filter(test).length
+  // A fixed order, so each kind keeps its colour whichever is most used.
+  const BACKGROUND_KINDS = [
+    ["image", "Photo"],
+    ["gradient", "Gradient"],
+    ["color", "Colour"],
+  ] as const
+  const qrByCatalogue = new Map(data.qrConfigs.map((q) => [q.catalogue_id, q]))
+  const usersWithSavedThemes = new Set(data.userThemes.map((t) => t.user_id))
+    .size
+  const ga = has("googleAnalytics")
+  const pixel = has("metaPixel")
+  const integrationsTogether = (): FeatureBreakdown => {
+    const tracked = data.catalogues.filter((c) => ga(c) || pixel(c))
     return {
-      key: f.key,
-      label: f.label,
-      group: f.group,
-      catalogues: using.length,
-      pctCatalogues: totalCatalogues
-        ? round1((using.length / totalCatalogues) * 100)
-        : 0,
-      owners: new Set(using.map((c) => c.user_id)).size,
+      kind: "parts",
+      title: "Integrations together",
+      rows: [
+        {
+          name: "Google Analytics only",
+          value: count(tracked, (c) => ga(c) && !pixel(c)),
+        },
+        {
+          name: "Meta Pixel only",
+          value: count(tracked, (c) => pixel(c) && !ga(c)),
+        },
+        { name: "Both", value: count(tracked, (c) => ga(c) && pixel(c)) },
+      ],
     }
-  })
+  }
+  const breakdownOf = (
+    key: FeatureKey,
+    using: CatalogueRow[],
+  ): FeatureBreakdown | null => {
+    switch (key) {
+      case "customBackground":
+        return {
+          kind: "parts",
+          title: "By kind",
+          rows: [
+            ...BACKGROUND_KINDS.map(([kind, name]) => ({
+              name,
+              value: count(using, (c) => c.background === kind),
+            })),
+            {
+              name: "Other",
+              value: count(
+                using,
+                (c) => !BACKGROUND_KINDS.some(([kind]) => kind === c.background),
+              ),
+            },
+          ].filter((r) => r.name !== "Other" || r.value > 0),
+        }
+      case "glass":
+        return {
+          kind: "parts",
+          title: "By level",
+          rows: ["Clear", "Semi-frosted", "Frosted"].map((name, i) => ({
+            name,
+            value: count(using, (c) => c.glassLevel === i + 1),
+          })),
+        }
+      case "qrCode":
+        return {
+          kind: "counts",
+          title: "Saved designs",
+          rows: [
+            {
+              name: "With a logo",
+              value: count(using, (c) => qrByCatalogue.get(c.id)?.has_logo === true),
+            },
+            {
+              name: "With frame text",
+              value: count(using, (c) => qrByCatalogue.get(c.id)?.has_frame === true),
+            },
+          ],
+        }
+      case "customTheme":
+        return {
+          kind: "counts",
+          title: "Saved themes",
+          rows: [
+            { name: "Themes saved", value: data.userThemes.length },
+            { name: "Users who saved one", value: usersWithSavedThemes },
+          ],
+        }
+      case "googleAnalytics":
+      case "metaPixel":
+        return integrationsTogether()
+      default:
+        return null
+    }
+  }
 
-  // Features looked at closely. "New" is the share of catalogues created in
-  // the selected period that use the feature now: whether it is catching on.
-  const spotlightOf = (
-    key: SpotlightKey,
-    label: string,
-    uses: (c: CatalogueRow) => boolean,
-    breakdownTitle: string,
-    breakdown: (using: CatalogueRow[]) => Bucket[],
-    breakdownUnit = "Catalogues",
-  ): Spotlight => {
-    const using = data.catalogues.filter(uses)
-    const fresh = cataloguesInRange.filter(uses)
+  const adoption: FeatureAdoption[] = FEATURES.map((f) => {
+    const using = data.catalogues.filter(has(f.key))
+    const fresh = cataloguesInRange.filter(has(f.key))
     const byOwner = new Map<string, number>()
     for (const c of using) {
       byOwner.set(c.user_id, (byOwner.get(c.user_id) ?? 0) + 1)
     }
     return {
-      key,
-      label,
+      key: f.key,
+      label: f.label,
+      group: f.group,
       catalogues: using.length,
       pctCatalogues: totalCatalogues
         ? round1((using.length / totalCatalogues) * 100)
@@ -680,84 +757,16 @@ export function computeView(
       newPct: cataloguesInRange.length
         ? round1((fresh.length / cataloguesInRange.length) * 100)
         : 0,
-      breakdownTitle,
-      breakdownUnit,
-      breakdown: breakdown(using),
       topUsers: rankUsers(byOwner),
+      breakdown: breakdownOf(f.key, using),
     }
-  }
-  const has = (key: FeatureKey) => (c: CatalogueRow) => c.features.includes(key)
-  const count = (rows: CatalogueRow[], test: (c: CatalogueRow) => boolean) =>
-    rows.filter(test).length
-  const backgroundLabel = (k: string) =>
-    ({ image: "Photo", gradient: "Gradient", color: "Colour" })[k] ??
-    titleCase(k)
-  const qrByCatalogue = new Map(data.qrConfigs.map((q) => [q.catalogue_id, q]))
-  const usersWithSavedThemes = new Set(data.userThemes.map((t) => t.user_id))
-    .size
-  const ga = has("googleAnalytics")
-  const pixel = has("metaPixel")
-
-  const spotlights: Spotlight[] = [
-    spotlightOf(
-      "background",
-      "Custom background",
-      has("customBackground"),
-      "By kind",
-      (using) =>
-        bucketise(
-          using.map((c) => ({ key: c.background })),
-          backgroundLabel,
-        ),
-    ),
-    spotlightOf("glass", "Glass effect", has("glass"), "By level", (using) =>
-      ["Clear", "Semi-frosted", "Frosted"].map((name, i) => ({
-        name,
-        value: count(using, (c) => c.glassLevel === i + 1),
-      })),
-    ),
-    spotlightOf(
-      "qr",
-      "QR code design",
-      has("qrCode"),
-      "Saved designs",
-      (using) => [
-        {
-          name: "With a logo",
-          value: count(using, (c) => qrByCatalogue.get(c.id)?.has_logo === true),
-        },
-        {
-          name: "With frame text",
-          value: count(using, (c) => qrByCatalogue.get(c.id)?.has_frame === true),
-        },
-      ],
-    ),
-    spotlightOf(
-      "theme",
-      "Custom theme",
-      has("customTheme"),
-      "Saved themes",
-      () => [
-        { name: "Themes saved", value: data.userThemes.length },
-        { name: "Users who saved one", value: usersWithSavedThemes },
-      ],
-      "Count",
-    ),
-    spotlightOf(
-      "integrations",
-      "Integrations",
-      (c) => ga(c) || pixel(c),
-      "By integration",
-      (using) => [
-        {
-          name: "Google Analytics only",
-          value: count(using, (c) => ga(c) && !pixel(c)),
-        },
-        { name: "Meta Pixel only", value: count(using, (c) => pixel(c) && !ga(c)) },
-        { name: "Both", value: count(using, (c) => ga(c) && pixel(c)) },
-      ],
-    ),
-  ]
+  })
+  const featuresPerCatalogue = totalCatalogues
+    ? round1(
+        data.catalogues.reduce((s, c) => s + c.features.length, 0) /
+          totalCatalogues,
+      )
+    : 0
 
   // Every section by its stored type, the old keys kept apart. Like adoption,
   // this is the content as it is now, across all catalogues.
@@ -863,7 +872,8 @@ export function computeView(
 
   const features = {
     adoption,
-    spotlights,
+    featuresPerCatalogue,
+    newCatalogues: cataloguesInRange.length,
     sectionTypes,
     totalCatalogues,
     trackedCatalogues: data.catalogues.filter(
