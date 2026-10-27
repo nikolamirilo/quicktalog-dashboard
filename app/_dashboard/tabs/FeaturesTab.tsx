@@ -12,14 +12,19 @@ import {
   Sparkles,
 } from "lucide-react"
 
-import { BarChart, Card, LineChart } from "@/components/charts"
+import { BarChart, Card, DonutChart, LineChart } from "@/components/charts"
 import {
   getColorClassName,
   type AvailableChartColorsKeys,
 } from "@/lib/utils/chartColors"
 import { cx } from "@/lib/utils/cx"
 
-import { FEATURES, SECTION_TYPES, type FeatureKey } from "../features"
+import {
+  FEATURES,
+  SECTION_TYPES,
+  type FeatureGroup,
+  type FeatureKey,
+} from "../features"
 import type {
   DashboardView,
   FeatureAdoption,
@@ -44,75 +49,113 @@ const round1 = (n: number) => Math.round(n * 10) / 10
 // "catching on" call is not made.
 const MIN_NEW_FOR_TREND = 3
 
-// Every feature on one scale, most adopted first. The bar is the all-time
-// share; the tick is the share among catalogues created in the period, so a
-// tick past the bar's end means new catalogues pick the feature up more.
-function AdoptionChart({
+// One chart per group, paired by size so the rows of the grid line up.
+const GROUPS: FeatureGroup[] = [
+  "Content blocks",
+  "Appearance",
+  "Branding",
+  "Sharing & leads",
+  "Integrations",
+  "AI",
+]
+
+// The features of one group, most adopted first, on a scale shared by every
+// group so bars compare across charts. The bar is the all-time share; the
+// tick is the share among catalogues created in the period.
+function GroupChart({
+  group,
   rows,
+  domain,
   selected,
   onSelect,
   showNew,
 }: {
+  group: FeatureGroup
   rows: FeatureAdoption[]
+  domain: number
   selected: FeatureKey
   onSelect: (key: FeatureKey) => void
-  showNew: boolean // false when the period holds no catalogues, or all of them
+  showNew: boolean
 }) {
   const sorted = [...rows].sort(
     (a, b) => b.pctCatalogues - a.pctCatalogues || a.label.localeCompare(b.label),
   )
-  const peak = Math.max(
-    ...rows.flatMap((r) => (showNew ? [r.pctCatalogues, r.newPct] : [r.pctCatalogues])),
-    1,
-  )
-  const domain = Math.min(100, Math.ceil(peak / 10) * 10)
   const at = (v: number) => `${(v / domain) * 100}%`
-
   return (
-    <ul className="space-y-0.5">
-      {sorted.map((r) => {
-        const active = r.key === selected
-        return (
-          <li key={r.key}>
-            <button
-              type="button"
-              aria-pressed={active}
-              onClick={() => onSelect(r.key)}
-              title={`${r.label}: ${pct(r.pctCatalogues)} of all catalogues (${number(r.catalogues)})${showNew ? `, ${pct(r.newPct)} of those created in the period` : ""}`}
-              className={cx(
-                "grid w-full grid-cols-[minmax(0,7rem)_minmax(0,1fr)_3rem] items-center gap-2.5 rounded-md px-2 py-[7px] text-left transition-colors focus-visible:outline-offset-[-2px] sm:grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)_3.25rem] sm:gap-3",
-                active ? "bg-amber-soft" : "hover:bg-ink/[0.035]",
-              )}
-            >
-              <span
+    <Card className="p-4">
+      <h3 className="mb-2 text-[14px] font-extrabold tracking-[-0.01em] text-ink">
+        {group}
+      </h3>
+      <ul className="-mx-2 space-y-px">
+        {sorted.map((r) => {
+          const active = r.key === selected
+          return (
+            <li key={r.key}>
+              <button
+                type="button"
+                aria-pressed={active}
+                onClick={() => onSelect(r.key)}
+                title={`${r.label}: ${pct(r.pctCatalogues)} of all catalogues (${number(r.catalogues)})${showNew ? `, ${pct(r.newPct)} of those created in the period` : ""}`}
                 className={cx(
-                  "truncate text-[13.5px] text-ink",
-                  active ? "font-bold" : "font-medium",
+                  "grid w-full grid-cols-[minmax(0,8.25rem)_minmax(0,1fr)_2.9rem] items-center gap-2.5 rounded-md px-2 py-[6px] text-left transition-colors focus-visible:outline-offset-[-2px]",
+                  active ? "bg-amber-soft" : "hover:bg-ink/[0.035]",
                 )}
               >
-                {r.label}
-              </span>
-              <span className="relative h-3">
                 <span
-                  className="absolute inset-y-0 left-0 rounded-r-[4px] bg-series-amber"
-                  style={{ width: at(r.pctCatalogues) }}
-                />
-                {showNew && (
+                  className={cx(
+                    "truncate text-[13px] text-ink",
+                    active ? "font-bold" : "font-medium",
+                  )}
+                >
+                  {r.label}
+                </span>
+                <span className="relative h-2.5">
                   <span
-                    aria-hidden="true"
-                    className="absolute -top-1 -bottom-1 w-[3px] rounded-full bg-ink ring-2 ring-card"
-                    style={{ left: `calc(${at(r.newPct)} - 1.5px)` }}
+                    className="absolute inset-y-0 left-0 rounded-r-[4px] bg-series-amber"
+                    style={{ width: at(r.pctCatalogues) }}
                   />
-                )}
-              </span>
-              <span className="text-right text-[13px] font-semibold text-ink tabular-nums">
-                {pct(r.pctCatalogues)}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+                  {showNew && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-1 -bottom-1 w-[3px] rounded-full bg-ink ring-2 ring-card"
+                      style={{ left: `calc(${at(r.newPct)} - 1.5px)` }}
+                    />
+                  )}
+                </span>
+                <span className="text-right text-[12.5px] font-semibold text-ink tabular-nums">
+                  {pct(r.pctCatalogues)}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
+  )
+}
+
+// A share of catalogues as a ring: the amber arc over a light track.
+function ShareRing({ value }: { value: number }) {
+  const r = 34
+  const c = 2 * Math.PI * r
+  return (
+    <div className="relative size-[88px] flex-none">
+      <svg viewBox="0 0 88 88" className="size-full -rotate-90" aria-hidden="true">
+        <circle cx="44" cy="44" r={r} className="fill-none stroke-bg-alt" strokeWidth="9" />
+        <circle
+          cx="44"
+          cy="44"
+          r={r}
+          className="fill-none stroke-series-amber transition-[stroke-dasharray] duration-500"
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeDasharray={`${(Math.min(value, 100) / 100) * c} ${c}`}
+        />
+      </svg>
+      <span className="absolute inset-0 grid place-items-center font-head text-[19px] font-extrabold tracking-[-0.03em] text-ink">
+        {pct(value)}
+      </span>
+    </div>
   )
 }
 
@@ -174,21 +217,14 @@ function PartsLegend({
   rows,
   colors,
   detail,
-  columns = 1,
 }: {
   rows: { name: string; value: number }[]
   colors: AvailableChartColorsKeys[]
   detail?: (i: number) => string
-  columns?: 1 | 2
 }) {
   const total = rows.reduce((s, r) => s + r.value, 0)
   return (
-    <ul
-      className={cx(
-        "grid grid-cols-1 gap-x-6 gap-y-2",
-        columns === 2 && "sm:grid-cols-2",
-      )}
-    >
+    <ul className="grid grid-cols-1 gap-y-2">
       {rows.map((r, i) => (
         <li key={r.name} className="flex min-w-0 items-baseline gap-2 text-sm">
           <span
@@ -253,24 +289,19 @@ function FeatureDetail({
   const change = round1(f.newPct - f.pctCatalogues)
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <p className="text-[12px] font-bold tracking-[0.06em] text-ink-3 uppercase">
-          {f.group}
-        </p>
-        <h3 className="mt-1 text-[20px] font-extrabold tracking-[-0.02em] text-ink">
-          {f.label}
-        </h3>
-        <div className="mt-3 flex items-end gap-2.5">
-          <b className="font-head text-[44px] leading-none font-extrabold tracking-[-0.03em] text-ink">
-            {pct(f.pctCatalogues)}
-          </b>
-          <span className="pb-1 text-[13px] text-ink-3">of all catalogues</span>
+      <div className="flex items-center gap-4">
+        <ShareRing value={f.pctCatalogues} />
+        <div className="min-w-0">
+          <p className="text-[12px] font-bold tracking-[0.06em] text-ink-3 uppercase">
+            {f.group}
+          </p>
+          <h3 className="mt-0.5 text-[20px] leading-tight font-extrabold tracking-[-0.02em] text-ink">
+            {f.label}
+          </h3>
+          <p className="mt-1 text-[13px] text-ink-3">
+            {number(f.catalogues)} catalogues · {number(f.owners)} owners
+          </p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <KpiInline label="Catalogues" value={number(f.catalogues)} />
-        <KpiInline label="Owners" value={number(f.owners)} />
       </div>
 
       {showNew && (
@@ -301,8 +332,8 @@ function FeatureDetail({
 }
 
 // Each type in use keeps its own slot, in SECTION_TYPES order; old keys and
-// anything unrecognised fold into one neutral part.
-function SectionTypes({
+// anything unrecognised fold into one neutral slice.
+function SectionTypesPie({
   sectionTypes,
 }: {
   sectionTypes: Features["sectionTypes"]
@@ -310,53 +341,54 @@ function SectionTypes({
   const current = SECTION_TYPES.filter((t) => !t.replacedBy)
   const rowOf = new Map(sectionTypes.rows.map((r) => [r.type, r]))
   const known = new Set<string>(SECTION_TYPES.map((t) => t.type))
-  const old = sectionTypes.rows.filter((r) => r.replacedBy)
   const folded = sectionTypes.rows.filter(
     (r) => r.replacedBy || !known.has(r.type),
   )
   const hasUnknown = folded.some((r) => !r.replacedBy && r.sections > 0)
   const parts = [
-    ...current.map((t) => {
-      const r = rowOf.get(t.type)
-      return { name: t.label, value: r?.sections ?? 0, catalogues: r?.catalogues ?? 0 }
-    }),
+    ...current.map((t) => ({
+      name: t.label,
+      value: rowOf.get(t.type)?.sections ?? 0,
+    })),
     {
       name: hasUnknown ? "Old and other types" : "Old types",
       value: folded.reduce((s, r) => s + r.sections, 0),
-      catalogues: null,
     },
   ]
   const colors: AvailableChartColorsKeys[] = [
     ...current.map((_, i) => SERIES[i]),
     "gray",
   ]
-  const oldInUse = old.filter((r) => r.sections > 0)
+  // Recharts skips empty slices, so the colours must line up with the
+  // slices that are drawn.
+  const drawn = parts
+    .map((p, i) => ({ ...p, color: colors[i] }))
+    .filter((p) => p.value > 0)
+  const oldInUse = folded.filter((r) => r.replacedBy && r.sections > 0)
 
   if (sectionTypes.totalSections === 0) return <Empty label="No sections yet." />
 
   return (
-    <div className="space-y-4">
-      <PartsBar rows={parts} colors={colors} />
-      <PartsLegend
-        rows={parts}
-        colors={colors}
-        columns={2}
-        detail={(i) =>
-          parts[i].catalogues == null
-            ? "saved before a rename or merge"
-            : `in ${number(parts[i].catalogues)} catalogues`
-        }
+    <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
+      <DonutChart
+        data={drawn}
+        category="name"
+        value="value"
+        variant="pie"
+        colors={drawn.map((p) => p.color)}
+        valueFormatter={number}
+        className="mx-auto h-44 w-44 flex-none"
       />
-      <p className="border-t border-line pt-3 text-[13px] text-ink-3">
-        {oldInUse.length === 0
-          ? "No old section keys left: every catalogue uses the current types."
-          : `Old keys still stored: ${oldInUse
-              .map(
-                (r) =>
-                  `${r.label} ${number(r.sections)} in ${number(r.catalogues)} catalogues (read as ${r.replacedBy})`,
-              )
-              .join(" · ")}`}
-      </p>
+      <div className="min-w-0 flex-1 space-y-3">
+        <PartsLegend rows={parts} colors={colors} />
+        <p className="border-t border-line pt-3 text-[12.5px] text-ink-3">
+          {oldInUse.length === 0
+            ? "No old section keys left."
+            : `Old keys still stored: ${oldInUse
+                .map((r) => `${r.label} ${number(r.sections)} (read as ${r.replacedBy})`)
+                .join(" · ")}`}
+        </p>
+      </div>
     </div>
   )
 }
@@ -379,7 +411,7 @@ export default function FeaturesTab({
   const top = ranked[0]
   const [selectedKey, setSelectedKey] = useState<FeatureKey>(top.key)
   const selected = byKey.get(selectedKey) ?? top
-  // Below `lg` the details sit under the chart, so bring them into view.
+  // Below `lg` the details sit under the charts, so bring them into view.
   const detailRef = useRef<HTMLDivElement>(null)
   const selectFeature = (key: FeatureKey) => {
     setSelectedKey(key)
@@ -401,6 +433,15 @@ export default function FeaturesTab({
           .filter((x) => x.change > 0)
           .sort((a, b) => b.change - a.change)[0]
       : undefined
+
+  // One scale for every group chart, rounded up to the next ten.
+  const peak = Math.max(
+    ...features.adoption.flatMap((r) =>
+      showNew ? [r.pctCatalogues, r.newPct] : [r.pctCatalogues],
+    ),
+    1,
+  )
+  const domain = Math.min(100, Math.ceil(peak / 10) * 10)
 
   return (
     <div className="space-y-6">
@@ -447,40 +488,52 @@ export default function FeaturesTab({
         />
       </section>
 
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div>
+          <h3 className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
+            Adoption by feature
+          </h3>
+          <p className="mt-0.5 text-[13px] text-ink-3">
+            Share of all {number(features.totalCatalogues)} catalogues using each
+            one. Pick a feature for details.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] text-ink-2">
+          <span className="inline-flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-4 rounded-r-[3px] bg-series-amber"
+            />
+            All catalogues
+          </span>
+          {showNew && (
+            <span className="inline-flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="h-3.5 w-[3px] rounded-full bg-ink"
+              />
+              {`Created in this period (${number(features.newCatalogues)})`}
+            </span>
+          )}
+        </div>
+      </div>
+
       <section
         key={`${animationKey}-feat-adoption`}
         className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
       >
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="Adoption by feature"
-            subtitle={`Share of all ${number(features.totalCatalogues)} catalogues using each one. Pick a feature for details.`}
-          >
-            <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] text-ink-2">
-              <span className="inline-flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-2.5 w-4 rounded-r-[3px] bg-series-amber"
-                />
-                All catalogues
-              </span>
-              {showNew && (
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="h-3.5 w-[3px] rounded-full bg-ink"
-                  />
-                  {`Created in this period (${number(features.newCatalogues)})`}
-                </span>
-              )}
-            </div>
-            <AdoptionChart
-              rows={features.adoption}
+        <div className="grid grid-cols-1 content-start gap-4 sm:grid-cols-2 lg:col-span-2">
+          {GROUPS.map((group) => (
+            <GroupChart
+              key={group}
+              group={group}
+              rows={features.adoption.filter((f) => f.group === group)}
+              domain={domain}
               selected={selected.key}
               onSelect={selectFeature}
               showNew={showNew}
             />
-          </ChartCard>
+          ))}
         </div>
 
         <Card ref={detailRef} className="scroll-mt-24">
@@ -494,16 +547,14 @@ export default function FeaturesTab({
 
       <section
         key={`${animationKey}-feat-content`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
-        <div className="lg:col-span-2">
-          <ChartCard
-            title="Section types"
-            subtitle={`Share of all ${number(features.sectionTypes.totalSections)} sections, by type`}
-          >
-            <SectionTypes sectionTypes={features.sectionTypes} />
-          </ChartCard>
-        </div>
+        <ChartCard
+          title="Section types"
+          subtitle={`Share of all ${number(features.sectionTypes.totalSections)} sections, by type`}
+        >
+          <SectionTypesPie sectionTypes={features.sectionTypes} />
+        </ChartCard>
 
         <ChartCard title="Theme popularity" subtitle="Catalogues per theme">
           {themes.popularity.length === 0 ? (
@@ -518,7 +569,7 @@ export default function FeaturesTab({
               showLegend={false}
               valueFormatter={number}
               yAxisWidth={96}
-              className="h-full min-h-64 flex-1"
+              className="h-full min-h-56 flex-1"
             />
           )}
         </ChartCard>
