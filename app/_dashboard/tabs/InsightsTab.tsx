@@ -11,7 +11,7 @@ import {
   UserPlus,
 } from "lucide-react"
 
-import { AreaChart, BarChart, Card, DonutChart, LineChart } from "@/components/charts"
+import { AreaChart, BarChart, DonutChart, LineChart } from "@/components/charts"
 
 import type { DashboardView } from "../types"
 import {
@@ -25,6 +25,7 @@ import {
   SectionHeading,
   compactNumber,
   decimal,
+  hours,
   number,
   pct,
 } from "../ui"
@@ -101,9 +102,7 @@ export default function InsightsTab({
           label="Time to first catalogue"
           icon={Timer}
           value={
-            insights.medianTtvDays == null
-              ? "—"
-              : `${insights.medianTtvDays} d`
+            insights.medianTtvHours == null ? "—" : hours(insights.medianTtvHours)
           }
           hint="median, signup → first catalogue"
         />
@@ -314,15 +313,6 @@ export default function InsightsTab({
           )}
         </ChartCard>
       </section>
-
-      <Card>
-        <p className="text-[13px] text-ink-3">
-          Views are counted from analytics rows owned by users who signed up in
-          this period. The category breakdown only includes views
-          recorded against a specific catalogue, which is why they can total
-          less than the headline figure.
-        </p>
-      </Card>
     </div>
   )
 }

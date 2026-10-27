@@ -15,6 +15,7 @@ import {
   KpiCard,
   RankingList,
   SectionHeading,
+  hours,
   number,
   pct,
   toRanking,
@@ -51,9 +52,7 @@ export default function EngagementTab({
           label="Time to first catalogue"
           icon={Timer}
           value={
-            activation.medianTtvDays == null
-              ? "—"
-              : `${activation.medianTtvDays} d`
+            activation.medianTtvHours == null ? "—" : hours(activation.medianTtvHours)
           }
           hint="median, signup → first catalogue"
         />

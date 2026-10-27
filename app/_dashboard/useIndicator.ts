@@ -2,7 +2,13 @@
 
 import { useLayoutEffect, useRef, useState } from "react"
 
-type Box = { left: number; width: number; animate: boolean }
+type Box = {
+  left: number
+  top: number
+  width: number
+  height: number
+  animate: boolean
+}
 
 // Measures the item marked `data-key={active}` inside the returned ref, so a
 // highlight can slide to it. Re-measures on resize (font load, wrapping); the
@@ -19,7 +25,9 @@ export function useIndicator(active: string) {
       if (!el) return
       setBox((prev) => ({
         left: el.offsetLeft,
+        top: el.offsetTop,
         width: el.offsetWidth,
+        height: el.offsetHeight,
         animate: prev != null,
       }))
     }
