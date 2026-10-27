@@ -18,7 +18,6 @@ export type RawCatalogue = {
   id: string
   name: string
   status: string | null
-  source: string | null
   language: string | null
   business_type: string | null
   user_id: string
@@ -102,8 +101,6 @@ const deriveFeatures = (
   const metadata = asObject(c.metadata)
   const used: Record<FeatureKey, boolean> = {
     aiAssistant: related.ai.has(c.id),
-    aiPrompt: c.source === "ai_prompt",
-    ocrImport: c.source === "ocr_import",
     // `custom_code` is the block's pre-rename key; older rows still carry it.
     customVisual: blockTypes.has("custom_visual") || blockTypes.has("custom_code"),
     embedding: blockTypes.has("embedding"),
@@ -142,7 +139,6 @@ const shapeCatalogue = (
     id: c.id,
     name: c.name,
     status: c.status,
-    source: c.source,
     language: c.language,
     business_type: c.business_type,
     user_id: c.user_id,

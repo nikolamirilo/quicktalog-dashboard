@@ -36,7 +36,7 @@ export default async function Page() {
       "select id, email, name, created_at, plan_id, customer_id from public.users",
     ),
     query<RawCatalogue>(
-      `select id, name, status, source, language, business_type, user_id,
+      `select id, name, status, language, business_type, user_id,
               created_at, updated_at, content, logo, contact, legal, metadata,
               appearance, header, footer, partners, tags
          from public.catalogues`,

@@ -189,14 +189,14 @@ export default function FeaturesTab({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <ChartCard
-              title="AI & import over time"
-              subtitle="Assistant turns, and catalogues created with AI or from an OCR scan"
+              title="AI assistant over time"
+              subtitle="Assistant turns per period"
             >
               <LineChart
                 data={ai.overTime}
                 index="date"
-                categories={["AI turns", "AI catalogues", "OCR imports"]}
-                colors={["amber", "violet", "magenta"]}
+                categories={["AI turns"]}
+                colors={["amber"]}
                 valueFormatter={number}
                 yAxisWidth={44}
                 className="h-full min-h-56 flex-1"

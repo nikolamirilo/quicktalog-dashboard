@@ -49,7 +49,6 @@ export const SERIES: AvailableChartColorsKeys[] = [
 // plan, "None") is neutral.
 const SLOTS = {
   status: ["Active", "Draft", "Inactive", "In Preparation", "Error"],
-  source: ["Builder", "Ai Prompt", "Ocr Import"],
   plan: ["Starter", "Basic", "Pro", "Growth", "Premium"],
   subscription: ["Active", "Trialing", "Past Due", "Paused", "Canceled"],
 } satisfies Record<string, string[]>

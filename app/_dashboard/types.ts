@@ -35,7 +35,6 @@ export type CatalogueRow = {
   id: string
   name: string
   status: string | null
-  source: string | null
   language: string | null
   business_type: string | null
   user_id: string
@@ -203,8 +202,6 @@ export type Features = {
     overTime: {
       date: string
       "AI turns": number
-      "AI catalogues": number
-      "OCR imports": number
     }[]
   }
   themes: {
@@ -251,12 +248,10 @@ export type Insights = {
   }[]
   ratioOverTime: { date: string; "Catalogues per user": number }[]
   byCategory: Bucket[] // business type
-  bySource: Bucket[]
   byLanguage: Bucket[]
   byStatus: Bucket[]
   byPlan: Bucket[]
   viewsByCategory: Bucket[]
-  viewsBySource: Bucket[]
   attributedViews: number // views matched to a specific catalogue
   topCreators: Ranking[]
   topCatalogues: Ranking[]
@@ -296,7 +291,6 @@ export type DashboardView = {
   pageviewsSeries: Pageview[]
   catalogues: {
     byStatus: Bucket[]
-    bySource: Bucket[]
     byLanguage: Bucket[]
     byBusinessType: Bucket[]
   }

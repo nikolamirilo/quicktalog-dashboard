@@ -291,10 +291,6 @@ export function computeView(
     cataloguesInRange.map((c) => ({ key: c.status })),
     titleCase,
   )
-  const bySource = bucketise(
-    cataloguesInRange.map((c) => ({ key: c.source })),
-    titleCase,
-  )
   const byLanguage = bucketise(
     cataloguesInRange.map((c) => ({ key: c.language?.toUpperCase() ?? null })),
   )
@@ -664,18 +660,12 @@ export function computeView(
     )
   }
   const aiUsers = new Set(aiInRange.map((a) => a.user_id)).size
-  const aiByPeriod = new Map<string, { turns: number; ai: number; ocr: number }>(
-    periods.map((p) => [p, { turns: 0, ai: 0, ocr: 0 }]),
+  const aiByPeriod = new Map<string, { turns: number }>(
+    periods.map((p) => [p, { turns: 0 }]),
   )
   for (const a of aiInRange) {
     const b = aiByPeriod.get(periodKeyOf(a.created_at))
     if (b) b.turns++
-  }
-  for (const c of cataloguesInRange) {
-    const b = aiByPeriod.get(periodKeyOf(c.created_at))
-    if (!b) continue
-    if (c.source === "ai_prompt") b.ai++
-    else if (c.source === "ocr_import") b.ocr++
   }
 
   const themeLabel = (t: string) =>
@@ -733,8 +723,6 @@ export function computeView(
         return {
           date: periodLabel(p),
           "AI turns": b.turns,
-          "AI catalogues": b.ai,
-          "OCR imports": b.ocr,
         }
       }),
     },
@@ -816,7 +804,6 @@ export function computeView(
       .sort((a, b) => b.value - a.value)
   }
   const viewsByCategory = sumViewsBy((c) => titleCase(c.business_type ?? "-"))
-  const viewsBySource = sumViewsBy((c) => titleCase(c.source ?? "-"))
   const attributedViews = cohortCatalogues.reduce(
     (s, c) => s + (viewsByCatId.get(c.id) ?? 0),
     0,
@@ -881,10 +868,6 @@ export function computeView(
       cohortCatalogues.map((c) => ({ key: c.business_type })),
       titleCase,
     ).slice(0, 8),
-    bySource: bucketise(
-      cohortCatalogues.map((c) => ({ key: c.source })),
-      titleCase,
-    ),
     byLanguage: bucketise(
       cohortCatalogues.map((c) => ({ key: c.language?.toUpperCase() ?? null })),
     ),
@@ -894,7 +877,6 @@ export function computeView(
     ),
     byPlan: planByUsers,
     viewsByCategory: viewsByCategory.slice(0, 8),
-    viewsBySource,
     attributedViews,
     topCreators: rankUsers(cohortCatsByUser),
     topCatalogues: cohortCatalogues
@@ -970,7 +952,7 @@ export function computeView(
       catalogues: { monthly: catsMonthly, cumulative: catsCumulative },
     },
     pageviewsSeries,
-    catalogues: { byStatus, bySource, byLanguage, byBusinessType },
+    catalogues: { byStatus, byLanguage, byBusinessType },
     plans: { byUsers: planByUsers },
     topCataloguesByPageviews,
     topUsersByCatalogues,

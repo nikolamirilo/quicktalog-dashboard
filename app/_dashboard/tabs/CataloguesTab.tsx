@@ -116,23 +116,6 @@ export default function CataloguesTab({
           )}
         </ChartCard>
 
-        <ChartCard title="Catalogues by source">
-          {catalogues.bySource.length === 0 ? (
-            <Empty />
-          ) : (
-            <BarChart
-              data={catalogues.bySource}
-              index="name"
-              categories={["value"]}
-              colors={["amber"]}
-              showLegend={false}
-              valueFormatter={number}
-              yAxisWidth={40}
-              className="h-full min-h-64 flex-1"
-            />
-          )}
-        </ChartCard>
-
         <ChartCard title="Catalogues by language">
           {catalogues.byLanguage.length === 0 ? (
             <Empty />
