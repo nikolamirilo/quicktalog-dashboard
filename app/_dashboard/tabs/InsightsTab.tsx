@@ -29,8 +29,8 @@ import {
   pct,
 } from "../ui"
 
-// up inside the selected period actually do? Signups → catalogues → ratio →
 // Everything on this tab answers one question: what did the users who signed
+// up inside the selected period actually do? Signups → catalogues → ratio →
 // the traffic those catalogues earned, then the same story cut by
 // category, language and plan.
 export default function InsightsTab({
