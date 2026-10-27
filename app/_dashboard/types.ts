@@ -127,7 +127,7 @@ export type Activation = {
   activationRate: number // % of users with ≥1 catalogue
   publishRate: number // % of catalogues that are published
   visitorRate: number // % of published catalogues that received a visit
-  medianTtvDays: number | null // median days signup → first catalogue
+  medianTtvHours: number | null // median hours signup → first catalogue
   rateByCohort: { date: string; "Activation %": number }[]
 }
 
@@ -243,7 +243,7 @@ export type Insights = {
   viewsPerUser: number
   subscribedUsers: number
   paidConversionRate: number
-  medianTtvDays: number | null
+  medianTtvHours: number | null
   overTime: {
     date: string
     "New users": number

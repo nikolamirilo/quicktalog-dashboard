@@ -1,12 +1,6 @@
 "use client"
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import {
   Activity,
   BookOpen,
@@ -22,7 +16,7 @@ import {
 
 import AuthGuard from "@/components/AuthGuard"
 import Backdrop from "@/components/Backdrop"
-import Header from "@/components/Header"
+import Sidebar from "@/components/Sidebar"
 import { cx } from "@/lib/utils/cx"
 
 import { computeView, resolveRange } from "./clientView"
@@ -110,25 +104,35 @@ const monthsAgo = (n: number) => {
 }
 
 // The slider both pill groups share: an amber-soft pill that glides to the
-// active item.
+// active item, across a row or, when `vertical`, down a column.
 function Indicator({
   box,
+  vertical = false,
   className,
 }: {
   box: ReturnType<typeof useIndicator>["box"]
+  vertical?: boolean
   className: string
 }) {
+  const style = !box
+    ? undefined
+    : vertical
+      ? { top: box.top, height: box.height }
+      : { left: box.left, width: box.width }
   return (
     <span
       aria-hidden="true"
       className={cx(
-        "pointer-events-none absolute top-0 bottom-0",
+        "pointer-events-none absolute",
+        vertical ? "inset-x-0" : "inset-y-0",
         box?.animate &&
-          "transition-[left,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          (vertical
+            ? "transition-[top,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            : "transition-[left,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"),
         box ? "opacity-100" : "opacity-0",
         className,
       )}
-      style={box ? { left: box.left, width: box.width } : undefined}
+      style={style}
     />
   )
 }
@@ -181,23 +185,9 @@ function TabBar({
 }) {
   const { ref, box } = useIndicator(value)
 
-  // Keep the active tab visible when the row scrolls (phones), e.g. on a
-  // deep link to #features.
-  const scrolled = useRef(false)
-  useEffect(() => {
-    const list = ref.current
-    const el = list?.querySelector<HTMLElement>(`[data-key="${value}"]`)
-    if (!list || !el) return
-    list.scrollTo({
-      left: el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2,
-      behavior: scrolled.current ? "smooth" : "auto",
-    })
-    scrolled.current = true
-  }, [ref, value])
-
   // Arrow keys move between tabs, as in the WAI-ARIA tabs pattern.
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return
     e.preventDefault()
     const i = TABS.findIndex((t) => t.id === value)
     const next =
@@ -205,7 +195,7 @@ function TabBar({
         ? 0
         : e.key === "End"
           ? TABS.length - 1
-          : (i + (e.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length
+          : (i + (e.key === "ArrowDown" ? 1 : -1) + TABS.length) % TABS.length
     onChange(TABS[next].id)
     ref.current
       ?.querySelector<HTMLElement>(`[data-key="${TABS[next].id}"]`)
@@ -217,11 +207,13 @@ function TabBar({
       ref={ref}
       role="tablist"
       aria-label="Analytics sections"
+      aria-orientation="vertical"
       onKeyDown={onKeyDown}
-      className="relative flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="relative flex flex-col gap-1"
     >
       <Indicator
         box={box}
+        vertical
         className="rounded-full border border-amber/55 bg-amber-soft shadow-[0_6px_16px_-8px_rgba(245,163,0,0.5)]"
       />
       {TABS.map((t) => {
@@ -240,7 +232,7 @@ function TabBar({
             title={t.hint}
             onClick={() => onChange(t.id)}
             className={cx(
-              "relative inline-flex h-10 flex-none items-center gap-[7px] rounded-full px-3.5 text-sm whitespace-nowrap transition-colors focus-visible:outline-offset-[-3px]",
+              "relative flex h-11 w-full items-center gap-2.5 rounded-full px-3.5 text-[14.5px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-3px]",
               active
                 ? "font-bold text-ink"
                 : "font-semibold text-ink-2 hover:bg-ink/[0.04] hover:text-ink",
@@ -428,59 +420,61 @@ export default function Dashboard({ data }: { data: DashboardData }) {
   return (
     <AuthGuard>
       <Backdrop />
-      <main className="min-h-screen pt-[9px] pb-20">
-        <Header nav={<TabBar value={tab} onChange={selectTab} />} />
+      <div className="min-h-screen pt-[9px] lg:flex lg:pt-0">
+        <Sidebar nav={<TabBar value={tab} onChange={selectTab} />} />
 
-        <div className="mx-auto max-w-[1280px] space-y-10 px-5 pt-6">
-          {/* Top-level time range: drives every chart on every tab */}
-          <Hero
-            start={start}
-            end={end}
-            pulses={pulsesOf(view, prevView)}
-            compareLabel={compareLabel}
-            controls={
-              <>
-                <RangeSelector value={range} onChange={setRange} />
-                {range === "CUSTOM" && (
-                  <DatePicker
-                    start={customStart}
-                    end={customEnd}
-                    onApply={(s, e) => {
-                      setCustomStart(s)
-                      setCustomEnd(e)
-                    }}
-                  />
-                )}
-              </>
-            }
-          />
-
-          <div
-            role="tabpanel"
-            id={`panel-${activeTab.id}`}
-            aria-labelledby={`tab-${activeTab.id}`}
-          >
-            {tab === "insights" && (
-              <InsightsTab view={view} animationKey={animationKey} />
-            )}
-            {tab === "growth" && (
-              <GrowthTab view={view} animationKey={animationKey} />
-            )}
-            {tab === "engagement" && (
-              <EngagementTab view={view} animationKey={animationKey} />
-            )}
-            {tab === "catalogues" && (
-              <CataloguesTab view={view} animationKey={animationKey} />
-            )}
-            {tab === "revenue" && (
-              <RevenueTab view={view} animationKey={animationKey} />
-            )}
-            {tab === "features" && (
-              <FeaturesTab view={view} animationKey={animationKey} />
-            )}
+        <main className="min-w-0 flex-1 pb-20">
+          <div className="mx-auto max-w-[1280px] space-y-10 px-5 pt-6 lg:px-8 lg:pt-3">
+            {/* Top-level time range: drives every chart on every tab */}
+            <Hero
+              start={start}
+              end={end}
+              pulses={pulsesOf(view, prevView)}
+              compareLabel={compareLabel}
+              controls={
+                <>
+                  <RangeSelector value={range} onChange={setRange} />
+                  {range === "CUSTOM" && (
+                    <DatePicker
+                      start={customStart}
+                      end={customEnd}
+                      onApply={(s, e) => {
+                        setCustomStart(s)
+                        setCustomEnd(e)
+                      }}
+                    />
+                  )}
+                </>
+              }
+            />
+  
+            <div
+              role="tabpanel"
+              id={`panel-${activeTab.id}`}
+              aria-labelledby={`tab-${activeTab.id}`}
+            >
+              {tab === "insights" && (
+                <InsightsTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "growth" && (
+                <GrowthTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "engagement" && (
+                <EngagementTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "catalogues" && (
+                <CataloguesTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "revenue" && (
+                <RevenueTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "features" && (
+                <FeaturesTab view={view} animationKey={animationKey} />
+              )}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </AuthGuard>
   )
 }

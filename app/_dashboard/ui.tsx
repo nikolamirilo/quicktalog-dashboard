@@ -27,6 +27,13 @@ export const compactNumber = (n: number) => compact.format(n)
 export const decimal = (n: number) => n.toFixed(2)
 export const pct = (n: number) => `${n}%`
 export const money = (n: number) => moneyFmt.format(n)
+// Whole hours, with days split off from a day up: "<1h", "5h", "1d 2h".
+export const hours = (n: number) => {
+  const total = Math.round(n)
+  if (total < 1) return "<1h"
+  const d = Math.floor(total / 24)
+  return d ? `${d}d ${total % 24}h` : `${total}h`
+}
 
 export const toRanking = (rows: { name: string; value: number }[]): Ranking[] =>
   rows.map((b) => ({ id: b.name, name: b.name, value: b.value }))
