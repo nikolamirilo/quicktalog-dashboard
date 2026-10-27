@@ -33,7 +33,7 @@ import {
 // Everything on this tab answers one question: what did the users who signed
 // up inside the selected period actually do? Signups → catalogues → ratio →
 // the traffic those catalogues earned, then the same story cut by category,
-// source, language and plan.
+// status, language and plan.
 export default function InsightsTab({
   view,
   animationKey,
@@ -156,7 +156,7 @@ export default function InsightsTab({
       {/* Breakdown of what they built */}
       <SectionHeading
         title="What they created"
-        subtitle="Catalogues from the new cohort, broken down by category, source and language"
+        subtitle="Catalogues from the new cohort, broken down by category, status and language"
       />
       <section
         key={`${animationKey}-ins-mix`}
@@ -177,38 +177,6 @@ export default function InsightsTab({
               yAxisWidth={96}
               className="h-full min-h-64 flex-1"
             />
-          )}
-        </ChartCard>
-
-        <ChartCard title="By source" subtitle="How the catalogue was created">
-          {insights.bySource.length === 0 ? (
-            <Empty />
-          ) : (
-            <>
-              <div className="flex flex-1 items-center justify-center">
-                <div className="relative h-44 w-44">
-                  <DonutChart
-                    data={insights.bySource}
-                    category="name"
-                    value="value"
-                    colors={colorsFor(insights.bySource, "source")}
-                    valueFormatter={number}
-                    className="h-44 w-44"
-                  />
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-[13px] text-ink-3">
-                      Total
-                    </p>
-                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
-                      {number(insights.cataloguesCreated)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-4">
-                <DonutLegend data={insights.bySource} colors={colorsFor(insights.bySource, "source")} />
-              </div>
-            </>
           )}
         </ChartCard>
 
@@ -236,6 +204,24 @@ export default function InsightsTab({
             </>
           )}
         </ChartCard>
+
+        <ChartCard title="By language" subtitle="Catalogues from the new cohort">
+          {insights.byLanguage.length === 0 ? (
+            <Empty />
+          ) : (
+            <BarChart
+              data={insights.byLanguage}
+              index="name"
+              categories={["value"]}
+              colors={["amber"]}
+              layout="vertical"
+              showLegend={false}
+              valueFormatter={number}
+              yAxisWidth={56}
+              className="h-full min-h-56 flex-1"
+            />
+          )}
+        </ChartCard>
       </section>
 
       {/* Where the traffic actually came from */}
@@ -245,7 +231,7 @@ export default function InsightsTab({
       />
       <section
         key={`${animationKey}-ins-views`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
         <ChartCard title="Views by category" subtitle="Business type">
           <div className="mb-3 flex flex-wrap gap-3">
@@ -275,29 +261,15 @@ export default function InsightsTab({
           )}
         </ChartCard>
 
-        <ChartCard title="Views by source" subtitle="Creation path of the catalogue">
-          {insights.viewsBySource.length === 0 ? (
+        <ChartCard
+          title="Views by language"
+          subtitle="Language of the catalogue"
+        >
+          {insights.viewsByLanguage.length === 0 ? (
             <Empty label="No attributed views in this range." />
           ) : (
             <BarChart
-              data={insights.viewsBySource}
-              index="name"
-              categories={["value"]}
-              colors={["amber"]}
-              showLegend={false}
-              valueFormatter={number}
-              yAxisWidth={48}
-              className="h-full min-h-56 flex-1"
-            />
-          )}
-        </ChartCard>
-
-        <ChartCard title="By language" subtitle="Catalogues from the new cohort">
-          {insights.byLanguage.length === 0 ? (
-            <Empty />
-          ) : (
-            <BarChart
-              data={insights.byLanguage}
+              data={insights.viewsByLanguage}
               index="name"
               categories={["value"]}
               colors={["amber"]}

@@ -35,13 +35,14 @@ export type CatalogueRow = {
   id: string
   name: string
   status: string | null
-  source: string | null
   language: string | null
   business_type: string | null
   user_id: string
   created_at: string
   updated_at: string | null
   contentSections: number
+  // Content blocks per stored type key, old keys included ("custom_code", ...).
+  sectionTypes: Record<string, number>
   contentItems: number
   hasLogo: boolean
   hasContact: boolean
@@ -51,6 +52,10 @@ export type CatalogueRow = {
   tagCount: number
   // Stored theme name ("theme-monochrome", ...), or "custom" for a custom theme.
   theme: string | null
+  // Kind of custom page background ("image", "gradient", "color"), or null
+  // when the theme's own background shows.
+  background: string | null
+  glassLevel: number // 0 off, 1 clear, 2 semi-frosted, 3 frosted
   features: FeatureKey[]
 }
 
@@ -86,9 +91,13 @@ export type AiCreditRow = {
   created_at: string
 }
 
+// A design saved in the QR code editor. Showing or downloading a plain QR
+// code leaves no row.
 export type QrConfigRow = {
   catalogue_id: string
   created_at: string | null
+  has_logo: boolean
+  has_frame: boolean // frame text shown around the code
 }
 
 // A visitor who signed up through a catalogue's newsletter footer.
@@ -189,8 +198,44 @@ export type FeatureAdoption = {
   owners: number // distinct users with at least one such catalogue
 }
 
+export type SpotlightKey =
+  | "background"
+  | "glass"
+  | "qr"
+  | "theme"
+  | "integrations"
+
+// One feature looked at closely: how far it has spread, whether new
+// catalogues pick it up, how it is configured and who uses it.
+export type Spotlight = {
+  key: SpotlightKey
+  label: string
+  catalogues: number // using it now (all-time)
+  pctCatalogues: number // % of all catalogues
+  owners: number
+  newCatalogues: number // created in range and using it now
+  newPct: number // % of catalogues created in range
+  breakdownTitle: string
+  breakdownUnit: string // what the breakdown values count
+  breakdown: Bucket[]
+  topUsers: Ranking[] // owners by catalogues using it
+}
+
+export type SectionTypeUsage = {
+  type: string // stored key
+  label: string
+  // An old key, saved before a rename or merge: `replacedBy` is what the
+  // app reads it as today.
+  replacedBy: string | null
+  sections: number
+  pctSections: number // % of all sections
+  catalogues: number // catalogues with at least one
+}
+
 export type Features = {
   adoption: FeatureAdoption[] // all-time snapshot, in FEATURES order
+  spotlights: Spotlight[]
+  sectionTypes: { rows: SectionTypeUsage[]; totalSections: number }
   totalCatalogues: number
   trackedCatalogues: number // with Google Analytics and/or Meta Pixel
   ai: {
@@ -203,8 +248,8 @@ export type Features = {
     overTime: {
       date: string
       "AI turns": number
-      "AI catalogues": number
-      "OCR imports": number
+      "Credits spent": number
+      "AI users": number
     }[]
   }
   themes: {
@@ -251,12 +296,11 @@ export type Insights = {
   }[]
   ratioOverTime: { date: string; "Catalogues per user": number }[]
   byCategory: Bucket[] // business type
-  bySource: Bucket[]
   byLanguage: Bucket[]
   byStatus: Bucket[]
   byPlan: Bucket[]
   viewsByCategory: Bucket[]
-  viewsBySource: Bucket[]
+  viewsByLanguage: Bucket[]
   attributedViews: number // views matched to a specific catalogue
   topCreators: Ranking[]
   topCatalogues: Ranking[]
@@ -296,7 +340,6 @@ export type DashboardView = {
   pageviewsSeries: Pageview[]
   catalogues: {
     byStatus: Bucket[]
-    bySource: Bucket[]
     byLanguage: Bucket[]
     byBusinessType: Bucket[]
   }

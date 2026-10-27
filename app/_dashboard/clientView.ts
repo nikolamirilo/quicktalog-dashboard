@@ -1,12 +1,16 @@
-import { FEATURES } from "./features"
+import { FEATURES, SECTION_TYPES, type FeatureKey } from "./features"
 import type {
   Bucket,
+  CatalogueRow,
   CataloguePoint,
   DashboardData,
   DashboardView,
   Pageview,
   Ranking,
   RangeKey,
+  SectionTypeUsage,
+  Spotlight,
+  SpotlightKey,
   SubscriptionRow,
   UserPoint,
 } from "./types"
@@ -289,10 +293,6 @@ export function computeView(
   // Catalogue breakdowns — only catalogues created in the selected range.
   const byStatus = bucketise(
     cataloguesInRange.map((c) => ({ key: c.status })),
-    titleCase,
-  )
-  const bySource = bucketise(
-    cataloguesInRange.map((c) => ({ key: c.source })),
     titleCase,
   )
   const byLanguage = bucketise(
@@ -652,6 +652,162 @@ export function computeView(
     }
   })
 
+  // Features looked at closely. "New" is the share of catalogues created in
+  // the selected period that use the feature now: whether it is catching on.
+  const spotlightOf = (
+    key: SpotlightKey,
+    label: string,
+    uses: (c: CatalogueRow) => boolean,
+    breakdownTitle: string,
+    breakdown: (using: CatalogueRow[]) => Bucket[],
+    breakdownUnit = "Catalogues",
+  ): Spotlight => {
+    const using = data.catalogues.filter(uses)
+    const fresh = cataloguesInRange.filter(uses)
+    const byOwner = new Map<string, number>()
+    for (const c of using) {
+      byOwner.set(c.user_id, (byOwner.get(c.user_id) ?? 0) + 1)
+    }
+    return {
+      key,
+      label,
+      catalogues: using.length,
+      pctCatalogues: totalCatalogues
+        ? round1((using.length / totalCatalogues) * 100)
+        : 0,
+      owners: byOwner.size,
+      newCatalogues: fresh.length,
+      newPct: cataloguesInRange.length
+        ? round1((fresh.length / cataloguesInRange.length) * 100)
+        : 0,
+      breakdownTitle,
+      breakdownUnit,
+      breakdown: breakdown(using),
+      topUsers: rankUsers(byOwner),
+    }
+  }
+  const has = (key: FeatureKey) => (c: CatalogueRow) => c.features.includes(key)
+  const count = (rows: CatalogueRow[], test: (c: CatalogueRow) => boolean) =>
+    rows.filter(test).length
+  const backgroundLabel = (k: string) =>
+    ({ image: "Photo", gradient: "Gradient", color: "Colour" })[k] ??
+    titleCase(k)
+  const qrByCatalogue = new Map(data.qrConfigs.map((q) => [q.catalogue_id, q]))
+  const usersWithSavedThemes = new Set(data.userThemes.map((t) => t.user_id))
+    .size
+  const ga = has("googleAnalytics")
+  const pixel = has("metaPixel")
+
+  const spotlights: Spotlight[] = [
+    spotlightOf(
+      "background",
+      "Custom background",
+      has("customBackground"),
+      "By kind",
+      (using) =>
+        bucketise(
+          using.map((c) => ({ key: c.background })),
+          backgroundLabel,
+        ),
+    ),
+    spotlightOf("glass", "Glass effect", has("glass"), "By level", (using) =>
+      ["Clear", "Semi-frosted", "Frosted"].map((name, i) => ({
+        name,
+        value: count(using, (c) => c.glassLevel === i + 1),
+      })),
+    ),
+    spotlightOf(
+      "qr",
+      "QR code design",
+      has("qrCode"),
+      "Saved designs",
+      (using) => [
+        {
+          name: "With a logo",
+          value: count(using, (c) => qrByCatalogue.get(c.id)?.has_logo === true),
+        },
+        {
+          name: "With frame text",
+          value: count(using, (c) => qrByCatalogue.get(c.id)?.has_frame === true),
+        },
+      ],
+    ),
+    spotlightOf(
+      "theme",
+      "Custom theme",
+      has("customTheme"),
+      "Saved themes",
+      () => [
+        { name: "Themes saved", value: data.userThemes.length },
+        { name: "Users who saved one", value: usersWithSavedThemes },
+      ],
+      "Count",
+    ),
+    spotlightOf(
+      "integrations",
+      "Integrations",
+      (c) => ga(c) || pixel(c),
+      "By integration",
+      (using) => [
+        {
+          name: "Google Analytics only",
+          value: count(using, (c) => ga(c) && !pixel(c)),
+        },
+        { name: "Meta Pixel only", value: count(using, (c) => pixel(c) && !ga(c)) },
+        { name: "Both", value: count(using, (c) => ga(c) && pixel(c)) },
+      ],
+    ),
+  ]
+
+  // Every section by its stored type, the old keys kept apart. Like adoption,
+  // this is the content as it is now, across all catalogues.
+  const sectionTotals = new Map<string, { sections: number; catalogues: number }>()
+  for (const c of data.catalogues) {
+    for (const [type, n] of Object.entries(c.sectionTypes)) {
+      const t = sectionTotals.get(type) ?? { sections: 0, catalogues: 0 }
+      t.sections += n
+      t.catalogues++
+      sectionTotals.set(type, t)
+    }
+  }
+  const totalSections = Array.from(sectionTotals.values()).reduce(
+    (s, t) => s + t.sections,
+    0,
+  )
+  const knownTypes = new Set<string>(SECTION_TYPES.map((t) => t.type))
+  const sectionRow = (
+    type: string,
+    label: string,
+    replacedBy: string | null,
+  ): SectionTypeUsage => {
+    const t = sectionTotals.get(type)
+    return {
+      type,
+      label,
+      replacedBy,
+      sections: t?.sections ?? 0,
+      pctSections: totalSections
+        ? round1(((t?.sections ?? 0) / totalSections) * 100)
+        : 0,
+      catalogues: t?.catalogues ?? 0,
+    }
+  }
+  const sectionTypes = {
+    rows: [
+      // Current types, most used first, then anything unrecognised.
+      ...SECTION_TYPES.filter((t) => !t.replacedBy)
+        .map((t) => sectionRow(t.type, t.label, null))
+        .sort((a, b) => b.sections - a.sections),
+      ...Array.from(sectionTotals.keys())
+        .filter((type) => !knownTypes.has(type))
+        .map((type) => sectionRow(type, titleCase(type), null)),
+      ...SECTION_TYPES.filter((t) => t.replacedBy).map((t) =>
+        sectionRow(t.type, t.label, t.replacedBy),
+      ),
+    ],
+    totalSections,
+  }
+
   // AI assistant turns. A refunded turn failed and gave its credits back, so
   // it counts as an attempt but not as credits spent.
   const aiInRange = data.aiCredits.filter((a) => isoInRange(a.created_at))
@@ -665,18 +821,16 @@ export function computeView(
     )
   }
   const aiUsers = new Set(aiInRange.map((a) => a.user_id)).size
-  const aiByPeriod = new Map<string, { turns: number; ai: number; ocr: number }>(
-    periods.map((p) => [p, { turns: 0, ai: 0, ocr: 0 }]),
-  )
+  const aiByPeriod = new Map<
+    string,
+    { turns: number; credits: number; users: Set<string> }
+  >(periods.map((p) => [p, { turns: 0, credits: 0, users: new Set() }]))
   for (const a of aiInRange) {
     const b = aiByPeriod.get(periodKeyOf(a.created_at))
-    if (b) b.turns++
-  }
-  for (const c of cataloguesInRange) {
-    const b = aiByPeriod.get(periodKeyOf(c.created_at))
     if (!b) continue
-    if (c.source === "ai_prompt") b.ai++
-    else if (c.source === "ocr_import") b.ocr++
+    b.turns++
+    b.users.add(a.user_id)
+    if (a.refunded_at == null) b.credits += a.credits ?? 0
   }
 
   const themeLabel = (t: string) =>
@@ -709,6 +863,8 @@ export function computeView(
 
   const features = {
     adoption,
+    spotlights,
+    sectionTypes,
     totalCatalogues,
     trackedCatalogues: data.catalogues.filter(
       (c) =>
@@ -734,8 +890,8 @@ export function computeView(
         return {
           date: periodLabel(p),
           "AI turns": b.turns,
-          "AI catalogues": b.ai,
-          "OCR imports": b.ocr,
+          "Credits spent": b.credits,
+          "AI users": b.users.size,
         }
       }),
     },
@@ -745,7 +901,7 @@ export function computeView(
         themeLabel,
       ),
       savedThemes: data.userThemes.length,
-      usersWithSavedThemes: new Set(data.userThemes.map((t) => t.user_id)).size,
+      usersWithSavedThemes,
     },
     leads: {
       subscribers: subscribersInRange,
@@ -817,7 +973,7 @@ export function computeView(
       .sort((a, b) => b.value - a.value)
   }
   const viewsByCategory = sumViewsBy((c) => titleCase(c.business_type ?? "-"))
-  const viewsBySource = sumViewsBy((c) => titleCase(c.source ?? "-"))
+  const viewsByLanguage = sumViewsBy((c) => c.language?.toUpperCase() ?? "-")
   const attributedViews = cohortCatalogues.reduce(
     (s, c) => s + (viewsByCatId.get(c.id) ?? 0),
     0,
@@ -882,10 +1038,6 @@ export function computeView(
       cohortCatalogues.map((c) => ({ key: c.business_type })),
       titleCase,
     ).slice(0, 8),
-    bySource: bucketise(
-      cohortCatalogues.map((c) => ({ key: c.source })),
-      titleCase,
-    ),
     byLanguage: bucketise(
       cohortCatalogues.map((c) => ({ key: c.language?.toUpperCase() ?? null })),
     ),
@@ -895,7 +1047,7 @@ export function computeView(
     ),
     byPlan: planByUsers,
     viewsByCategory: viewsByCategory.slice(0, 8),
-    viewsBySource,
+    viewsByLanguage,
     attributedViews,
     topCreators: rankUsers(cohortCatsByUser),
     topCatalogues: cohortCatalogues
@@ -971,7 +1123,7 @@ export function computeView(
       catalogues: { monthly: catsMonthly, cumulative: catsCumulative },
     },
     pageviewsSeries,
-    catalogues: { byStatus, bySource, byLanguage, byBusinessType },
+    catalogues: { byStatus, byLanguage, byBusinessType },
     plans: { byUsers: planByUsers },
     topCataloguesByPageviews,
     topUsersByCatalogues,

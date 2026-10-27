@@ -79,7 +79,7 @@ export default function CataloguesTab({
 
       <section
         key={`${animationKey}-dist`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
         <ChartCard title="Catalogues by status">
           {catalogues.byStatus.length === 0 ? (
@@ -113,23 +113,6 @@ export default function CataloguesTab({
                 />
               </div>
             </>
-          )}
-        </ChartCard>
-
-        <ChartCard title="Catalogues by source">
-          {catalogues.bySource.length === 0 ? (
-            <Empty />
-          ) : (
-            <BarChart
-              data={catalogues.bySource}
-              index="name"
-              categories={["value"]}
-              colors={["amber"]}
-              showLegend={false}
-              valueFormatter={number}
-              yAxisWidth={40}
-              className="h-full min-h-64 flex-1"
-            />
           )}
         </ChartCard>
 
