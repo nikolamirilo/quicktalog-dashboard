@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  ExternalLink,
   Info,
   Minus,
   XCircle,
@@ -462,9 +463,27 @@ export function RankingList({
               {i + 1}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[13.5px] font-medium text-ink">
-                {r.name}
-              </span>
+              {r.href ? (
+                <a
+                  href={r.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex min-w-0 items-center gap-1 text-[13.5px] font-medium text-ink hover:text-amber-ink"
+                >
+                  <span className="truncate underline-offset-2 group-hover:underline">
+                    {r.name}
+                  </span>
+                  <ExternalLink
+                    className="size-3.5 shrink-0 text-ink-3 group-hover:text-amber-ink"
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">(opens in a new tab)</span>
+                </a>
+              ) : (
+                <span className="block truncate text-[13.5px] font-medium text-ink">
+                  {r.name}
+                </span>
+              )}
               {r.meta && (
                 <span className="block truncate text-[12px] text-ink-3">{r.meta}</span>
               )}
