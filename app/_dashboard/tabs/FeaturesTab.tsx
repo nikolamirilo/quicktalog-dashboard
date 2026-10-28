@@ -575,10 +575,10 @@ export default function FeaturesTab({
         </ChartCard>
       </section>
 
-      {/* The design system puts the AI story on a night band. */}
+      {/* The AI story gets its own glass panel around its cards. */}
       <section
         key={`${animationKey}-feat-ai`}
-        className="night night-band qt-card animate-chart-in rounded-cta p-5 sm:p-8"
+        className="qt-card glass glass-panel animate-chart-in rounded-cta p-5 sm:p-8"
       >
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-xl">
