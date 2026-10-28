@@ -197,11 +197,11 @@ export type FeatureAdoption = {
   key: FeatureKey
   label: string
   group: FeatureGroup
-  catalogues: number // catalogues using the feature
-  pctCatalogues: number // % of all catalogues
+  catalogues: number // built catalogues using the feature
+  pctCatalogues: number // % of built catalogues
   owners: number // distinct users with at least one such catalogue
   newCatalogues: number // created in range and using it now
-  newPct: number // % of catalogues created in range
+  newPct: number // % of built catalogues created in range
   topUsers: Ranking[] // owners by catalogues using it
   breakdown: FeatureBreakdown | null
 }
@@ -217,12 +217,13 @@ export type SectionTypeUsage = {
   catalogues: number // catalogues with at least one
 }
 
+// Adoption is measured on built catalogues; empty drafts can't use features.
 export type Features = {
   adoption: FeatureAdoption[] // all-time snapshot, in FEATURES order
-  featuresPerCatalogue: number // average tracked features per catalogue
-  newCatalogues: number // catalogues created in range
+  featuresPerCatalogue: number // average tracked features per built catalogue
+  newCatalogues: number // built catalogues created in range
   sectionTypes: { rows: SectionTypeUsage[]; totalSections: number }
-  totalCatalogues: number
+  builtCatalogues: number
   trackedCatalogues: number // with Google Analytics and/or Meta Pixel
   ai: {
     turns: number
@@ -235,7 +236,7 @@ export type Features = {
     overTime: Series
   }
   themes: {
-    popularity: Bucket[] // catalogues per theme
+    popularity: Bucket[] // built catalogues per theme
     savedThemes: number
     usersWithSavedThemes: number
   }

@@ -6,13 +6,17 @@ import { BarChart } from "@/components/charts"
 import { cx } from "@/lib/utils/cx"
 
 import { STARTER_ITEMS, STARTER_SECTIONS } from "../plans"
-import type { TabProps } from "../types"
+import type { MatrixRow, TabProps } from "../types"
 import {
   ChartCard,
+  type Column,
+  DataTable,
   Empty,
   KpiCard,
+  Num,
   SectionHeading,
   TabLink,
+  heat,
   number,
   pct,
 } from "../ui"
@@ -20,17 +24,65 @@ import {
 const share = (part: number, whole: number) =>
   whole ? Math.round((part / whole) * 1000) / 10 : 0
 
-const MATRIX_COLUMNS = [
+// Status down the side, content across. Cells are shaded by count so the
+// big groups show at a glance; Empty keeps an amber tint on every row.
+const CONTENT_BUCKETS = [
   { key: "empty", label: "Empty" },
   { key: "noItems", label: "No items" },
   { key: "few", label: "1–2 items" },
   { key: "many", label: "3+ items" },
 ] as const
 
+const matrixColumns = (max: number): Column<MatrixRow>[] => [
+  {
+    key: "status",
+    header: "Status",
+    cell: (r) => <span className="font-semibold text-ink">{r.status}</span>,
+  },
+  ...CONTENT_BUCKETS.map(
+    (b): Column<MatrixRow> => ({
+      key: b.key,
+      header:
+        b.key === "empty" ? (
+          <span className="rounded-full bg-amber-soft px-2 py-0.5 text-amber-ink">
+            {b.label}
+          </span>
+        ) : (
+          b.label
+        ),
+      align: "right",
+      cell: (r) =>
+        r.status === "All" ? (
+          number(r[b.key])
+        ) : (
+          <span
+            className={cx(
+              "-my-1 inline-block min-w-14 rounded-md px-2 py-1",
+              b.key === "empty" && !r[b.key] && "bg-amber-soft/60",
+            )}
+            style={heat(r[b.key], max)}
+          >
+            <Num value={r[b.key]} />
+          </span>
+        ),
+    }),
+  ),
+  {
+    key: "total",
+    header: "Total",
+    align: "right",
+    cell: (r) => <span className="font-bold text-ink">{number(r.total)}</span>,
+  },
+]
+
 // What the catalogues hold. Empty catalogues lead: they are most of what new
 // users create, and none of them can earn a view.
 export default function ContentTab({ view, animationKey }: TabProps) {
   const { content: c } = view
+  const maxCell = Math.max(
+    0,
+    ...c.matrix.flatMap((r) => CONTENT_BUCKETS.map((b) => r[b.key])),
+  )
   return (
     <div className="space-y-6">
       <SectionHeading
@@ -106,53 +158,25 @@ export default function ContentTab({ view, animationKey }: TabProps) {
             {c.matrix.length === 0 ? (
               <Empty label="No catalogues yet." />
             ) : (
-              <div className="-mx-1 overflow-x-auto">
-                <table className="w-full min-w-[460px] text-sm tabular-nums">
-                  <thead>
-                    <tr className="text-[12.5px] text-ink-3">
-                      <th className="px-2 py-2 text-left font-semibold">Status</th>
-                      {MATRIX_COLUMNS.map((col) => (
-                        <th
-                          key={col.key}
-                          className={cx(
-                            "px-2 py-2 text-right font-semibold",
-                            col.key === "empty" && "rounded-t-md bg-amber-soft text-amber-ink",
-                          )}
-                        >
-                          {col.label}
-                        </th>
-                      ))}
-                      <th className="px-2 py-2 text-right font-semibold">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {c.matrix.map((row, i) => (
-                      <tr key={row.status} className="border-t border-line">
-                        <td className="px-2 py-2.5 text-ink">{row.status}</td>
-                        {MATRIX_COLUMNS.map((col) => (
-                          <td
-                            key={col.key}
-                            className={cx(
-                              "px-2 py-2.5 text-right",
-                              col.key === "empty"
-                                ? cx(
-                                    "bg-amber-soft font-bold text-ink",
-                                    i === c.matrix.length - 1 && "rounded-b-md",
-                                  )
-                                : "text-ink-2",
-                            )}
-                          >
-                            {number(row[col.key])}
-                          </td>
-                        ))}
-                        <td className="px-2 py-2.5 text-right font-semibold text-ink">
-                          {number(row.total)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={matrixColumns(maxCell)}
+                rows={c.matrix}
+                rowKey={(r) => r.status}
+                foot={[
+                  c.matrix.reduce(
+                    (t, r) => ({
+                      ...t,
+                      empty: t.empty + r.empty,
+                      noItems: t.noItems + r.noItems,
+                      few: t.few + r.few,
+                      many: t.many + r.many,
+                      total: t.total + r.total,
+                    }),
+                    { status: "All", empty: 0, noItems: 0, few: 0, many: 0, total: 0 },
+                  ),
+                ]}
+                minWidth={460}
+              />
             )}
             {c.publishedEmpty > 0 && (
               <p className="mt-3 text-[13px] text-ink-3">

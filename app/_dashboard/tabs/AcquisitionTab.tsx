@@ -4,18 +4,64 @@ import { BookPlus, CalendarDays, Tag, UserPlus } from "lucide-react"
 
 import { AreaChart, BarChart } from "@/components/charts"
 
-import type { TabProps } from "../types"
+import type { CohortRow, TabProps } from "../types"
 import {
+  BarValue,
   ChartCard,
+  type Column,
+  DataTable,
   Delta,
   Empty,
   KpiCard,
   Note,
+  Num,
   SectionHeading,
   decimal,
   number,
   pct,
 } from "../ui"
+
+const share = (part: number, whole: number) =>
+  whole ? Math.round((part / whole) * 1000) / 10 : 0
+
+// Each month's signups and how far they have got. Built is the share that
+// counts: it is the activation rate of that month.
+const COHORT_COLUMNS: Column<CohortRow>[] = [
+  {
+    key: "cohort",
+    header: "Signed up",
+    className: "w-[22%]",
+    cell: (c) => <span className="font-semibold text-ink">{c.cohort}</span>,
+  },
+  { key: "signups", header: "People", align: "right", cell: (c) => <Num value={c.signups} /> },
+  {
+    key: "started",
+    header: "Started",
+    align: "right",
+    cell: (c) => (
+      <span>
+        <Num value={c.started} />
+        <span className="ml-1.5 text-[12px] font-normal text-ink-3">
+          {pct(share(c.started, c.signups))}
+        </span>
+      </span>
+    ),
+  },
+  { key: "built", header: "Built", align: "right", cell: (c) => <Num value={c.built} /> },
+  {
+    key: "rate",
+    header: "Activation",
+    align: "right",
+    className: "w-[32%]",
+    cell: (c) =>
+      c.signups ? (
+        <BarValue value={share(c.built, c.signups)} label={pct(share(c.built, c.signups))} />
+      ) : (
+        <span className="text-ink-3">—</span>
+      ),
+  },
+  { key: "paying", header: "Ever paid", align: "right", cell: (c) => <Num value={c.paying} /> },
+]
 
 // Who signed up, when, and from where.
 export default function AcquisitionTab({ view, prev, animationKey }: TabProps) {
@@ -194,34 +240,24 @@ export default function AcquisitionTab({ view, prev, animationKey }: TabProps) {
           {acq.cohorts.length === 0 ? (
             <Empty />
           ) : (
-            <div className="-mx-1 overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-[12.5px] text-ink-3">
-                    <th className="px-1 py-2 font-semibold">Signed up</th>
-                    <th className="px-1 py-2 text-right font-semibold">People</th>
-                    <th className="px-1 py-2 text-right font-semibold">Started</th>
-                    <th className="px-1 py-2 text-right font-semibold">Built</th>
-                    <th className="px-1 py-2 text-right font-semibold">Built %</th>
-                    <th className="px-1 py-2 text-right font-semibold">Ever paid</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {acq.cohorts.map((c) => (
-                    <tr key={c.cohort} className="border-b border-line last:border-0">
-                      <td className="px-1 py-2 text-ink">{c.cohort}</td>
-                      <td className="px-1 py-2 text-right text-ink">{number(c.signups)}</td>
-                      <td className="px-1 py-2 text-right text-ink-2">{number(c.started)}</td>
-                      <td className="px-1 py-2 text-right text-ink">{number(c.built)}</td>
-                      <td className="px-1 py-2 text-right font-semibold text-ink">
-                        {c.signups ? pct(Math.round((c.built / c.signups) * 1000) / 10) : "—"}
-                      </td>
-                      <td className="px-1 py-2 text-right text-ink-2">{number(c.paying)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={COHORT_COLUMNS}
+              rows={acq.cohorts}
+              rowKey={(c) => c.cohort}
+              foot={[
+                acq.cohorts.reduce(
+                  (t, c) => ({
+                    ...t,
+                    signups: t.signups + c.signups,
+                    started: t.started + c.started,
+                    built: t.built + c.built,
+                    paying: t.paying + c.paying,
+                  }),
+                  { cohort: "Range total", signups: 0, started: 0, built: 0, paying: 0 },
+                ),
+              ]}
+              minWidth={560}
+            />
           )}
         </ChartCard>
       </section>

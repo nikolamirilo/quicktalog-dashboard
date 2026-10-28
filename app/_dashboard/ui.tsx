@@ -1,5 +1,6 @@
 "use client"
 
+import { Fragment } from "react"
 import type { LucideIcon } from "lucide-react"
 import {
   AlertTriangle,
@@ -446,38 +447,213 @@ export function RankingList({
   }
   const max = Math.max(...rows.map((r) => r.value), 1)
   return (
-    <ul className="space-y-3">
-      <li className="flex items-baseline justify-between text-[13px] text-ink-3">
+    <div>
+      <div className={cx(HEAD, "flex items-baseline justify-between border-b border-line-strong/70 pb-2")}>
         <span>Name</span>
         <span>{valueLabel}</span>
-      </li>
-      {rows.map((r) => {
-        const width = (r.value / max) * 100
-        return (
-          <li key={r.id}>
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="truncate text-sm text-ink">
+      </div>
+      <ol>
+        {rows.map((r, i) => (
+          <li
+            key={r.id}
+            className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 border-b border-line/80 py-2.5 last:border-0"
+          >
+            <span className="text-[12px] font-semibold text-ink-3 tabular-nums">
+              {i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-[13.5px] font-medium text-ink">
                 {r.name}
-                {r.meta && (
-                  <span className="ml-2 text-[13px] text-ink-3">{r.meta}</span>
-                )}
               </span>
-              <span className="text-sm font-semibold text-ink tabular-nums">
-                {format(r.value)}
-              </span>
-            </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bg-alt">
-              <div
-                className="h-full rounded-full bg-series-amber"
-                style={{ width: `${width}%` }}
+              {r.meta && (
+                <span className="block truncate text-[12px] text-ink-3">{r.meta}</span>
+              )}
+            </span>
+            <span className="text-right text-[13.5px] font-semibold text-ink tabular-nums">
+              {format(r.value)}
+            </span>
+            <span className="col-start-2 col-end-4 mt-1.5 h-1 overflow-hidden rounded-full bg-bg-alt">
+              <span
+                className="block h-full rounded-full bg-series-amber"
+                style={{ width: `${(r.value / max) * 100}%` }}
               />
-            </div>
+            </span>
           </li>
-        )
-      })}
-    </ul>
+        ))}
+      </ol>
+    </div>
   )
 }
+
+// ── Tables ──────────────────────────────────────────────────────────────────
+
+// Column headers: small caps in the caption colour, the same on every table.
+const HEAD =
+  "text-[11.5px] font-bold tracking-[0.05em] whitespace-nowrap text-ink-3 uppercase"
+
+export type Column<T> = {
+  key: string
+  header: React.ReactNode
+  align?: "left" | "right"
+  className?: string // width and the like, on the header and every cell
+  cell: (row: T) => React.ReactNode
+}
+
+// The dashboard's table: small-caps headers, hairline rows, numbers right
+// aligned in tabular figures. `groupOf` puts a group heading above the first
+// row of each group; `foot` rows are totals. Wide tables scroll inside their
+// card instead of the page.
+export function DataTable<T>({
+  columns,
+  rows,
+  rowKey,
+  groupOf,
+  foot = [],
+  minWidth = 480,
+  onRowClick,
+  isSelected,
+}: {
+  columns: Column<T>[]
+  rows: T[]
+  rowKey: (row: T) => string
+  groupOf?: (row: T) => string
+  foot?: T[]
+  minWidth?: number
+  onRowClick?: (row: T) => void
+  isSelected?: (row: T) => boolean
+}) {
+  const align = (c: Column<T>) => (c.align === "right" ? "text-right" : "text-left")
+  const pad = "px-3 first:pl-2 last:pr-2"
+  return (
+    <div className="-mx-2 overflow-x-auto">
+      <table
+        className="w-full border-separate border-spacing-0 text-[13.5px]"
+        style={{ minWidth }}
+      >
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th
+                key={c.key}
+                scope="col"
+                className={cx(HEAD, pad, "border-b border-line-strong/70 pb-2", align(c), c.className)}
+              >
+                {c.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="tabular-nums">
+          {rows.map((row, i) => {
+            const group = groupOf?.(row)
+            const selected = isSelected?.(row) ?? false
+            return (
+              <Fragment key={rowKey(row)}>
+                {group && (i === 0 || group !== groupOf?.(rows[i - 1])) && (
+                  <tr>
+                    <th
+                      scope="colgroup"
+                      colSpan={columns.length}
+                      className={cx(HEAD, "px-2 pt-4 pb-1.5 text-left text-ink-2")}
+                    >
+                      {group}
+                    </th>
+                  </tr>
+                )}
+                <tr
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cx(
+                    "transition-colors",
+                    onRowClick && "cursor-pointer",
+                    selected ? "bg-amber-soft" : "hover:bg-ink/[0.03]",
+                  )}
+                >
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={cx(
+                        pad,
+                        "border-b border-line/80 py-2.5 align-middle first:rounded-l-md last:rounded-r-md",
+                        align(c),
+                        c.className,
+                      )}
+                    >
+                      {c.cell(row)}
+                    </td>
+                  ))}
+                </tr>
+              </Fragment>
+            )
+          })}
+        </tbody>
+        {foot.length > 0 && (
+          <tfoot className="tabular-nums">
+            {foot.map((row) => (
+              <tr key={rowKey(row)}>
+                {columns.map((c) => (
+                  <td
+                    key={c.key}
+                    className={cx(
+                      pad,
+                      "border-t border-line-strong/70 py-2.5 font-bold text-ink",
+                      align(c),
+                      c.className,
+                    )}
+                  >
+                    {c.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tfoot>
+        )}
+      </table>
+    </div>
+  )
+}
+
+// A count in a table: zero recedes, so the numbers that matter stand out.
+export function Num({ value, format = number }: { value: number; format?: (n: number) => string }) {
+  return <span className={value === 0 ? "text-ink-3/70" : "text-ink"}>{format(value)}</span>
+}
+
+// A share with its bar, for a table cell. The bar is on a 0–`max` scale, so
+// bars compare down the column.
+export function BarValue({
+  value,
+  max = 100,
+  label,
+}: {
+  value: number
+  max?: number
+  label: string
+}) {
+  const width = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  return (
+    <span className="flex items-center justify-end gap-3">
+      <span className="h-1.5 w-full max-w-48 min-w-12 overflow-hidden rounded-full bg-bg-alt">
+        <span
+          className="block h-full rounded-full bg-series-amber"
+          style={{ width: `${value > 0 ? Math.max(width, 2) : 0}%` }}
+        />
+      </span>
+      <span
+        className={cx(
+          "w-12 shrink-0 text-right font-semibold",
+          value === 0 ? "text-ink-3/70" : "text-ink",
+        )}
+      >
+        {label}
+      </span>
+    </span>
+  )
+}
+
+// Heat-map shading for a table cell: one amber, deeper for bigger values.
+export const heat = (value: number, max: number): React.CSSProperties | undefined =>
+  value > 0 && max > 0
+    ? { backgroundColor: `rgb(255 176 32 / ${(0.08 + 0.42 * (value / max)).toFixed(3)})` }
+    : undefined
 
 export function DonutLegend({
   data,

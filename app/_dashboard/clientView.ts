@@ -899,7 +899,9 @@ export function computeView(
 
 // Which features are in use. Adoption reads each catalogue's current
 // settings, so it is all-time; AI usage and the activity series follow the
-// range.
+// range. Shares are of built catalogues: an empty draft can't use a feature,
+// and with most new catalogues empty, counting them would make every
+// feature look as if new users stopped using it.
 function featuresOf(
   data: DashboardData,
   cataloguesInRange: CatalogueRow[],
@@ -912,7 +914,8 @@ function featuresOf(
     rankUsers: (counts: Map<string, number>) => Ranking[]
   },
 ): DashboardView["features"] {
-  const totalCatalogues = data.catalogues.length
+  const built = data.catalogues.filter(isBuilt)
+  const builtInRange = cataloguesInRange.filter(isBuilt)
   const has = (key: FeatureKey) => (c: CatalogueRow) => c.features.includes(key)
   const count = (rows: CatalogueRow[], test: (c: CatalogueRow) => boolean) =>
     rows.filter(test).length
@@ -927,7 +930,7 @@ function featuresOf(
   const ga = has("googleAnalytics")
   const pixel = has("metaPixel")
   const integrationsTogether = (): FeatureBreakdown => {
-    const tracked = data.catalogues.filter((c) => ga(c) || pixel(c))
+    const tracked = built.filter((c) => ga(c) || pixel(c))
     return {
       kind: "parts",
       title: "Integrations together",
@@ -1003,8 +1006,8 @@ function featuresOf(
   }
 
   const adoption: FeatureAdoption[] = FEATURES.map((f) => {
-    const using = data.catalogues.filter(has(f.key))
-    const fresh = cataloguesInRange.filter(has(f.key))
+    const using = built.filter(has(f.key))
+    const fresh = builtInRange.filter(has(f.key))
     const byOwner = new Map<string, number>()
     for (const c of using) byOwner.set(c.user_id, (byOwner.get(c.user_id) ?? 0) + 1)
     return {
@@ -1012,18 +1015,16 @@ function featuresOf(
       label: f.label,
       group: f.group,
       catalogues: using.length,
-      pctCatalogues: pctOf(using.length, totalCatalogues),
+      pctCatalogues: pctOf(using.length, built.length),
       owners: byOwner.size,
       newCatalogues: fresh.length,
-      newPct: pctOf(fresh.length, cataloguesInRange.length),
+      newPct: pctOf(fresh.length, builtInRange.length),
       topUsers: p.rankUsers(byOwner),
       breakdown: breakdownOf(f.key, using),
     }
   })
-  const featuresPerCatalogue = totalCatalogues
-    ? round1(
-        data.catalogues.reduce((s, c) => s + c.features.length, 0) / totalCatalogues,
-      )
+  const featuresPerCatalogue = built.length
+    ? round1(built.reduce((s, c) => s + c.features.length, 0) / built.length)
     : 0
 
   // Every section by its stored type, the old keys kept apart. Like adoption,
@@ -1111,7 +1112,7 @@ function featuresOf(
   return {
     adoption,
     featuresPerCatalogue,
-    newCatalogues: cataloguesInRange.length,
+    newCatalogues: builtInRange.length,
     sectionTypes: {
       rows: [
         // Current types, most used first, then anything unrecognised.
@@ -1127,8 +1128,8 @@ function featuresOf(
       ],
       totalSections,
     },
-    totalCatalogues,
-    trackedCatalogues: data.catalogues.filter((c) => ga(c) || pixel(c)).length,
+    builtCatalogues: built.length,
+    trackedCatalogues: built.filter((c) => ga(c) || pixel(c)).length,
     ai: {
       turns: aiInRange.length,
       users: aiUsers.size,
@@ -1148,7 +1149,7 @@ function featuresOf(
       }),
     },
     themes: {
-      popularity: bucketise(data.catalogues.map((c) => ({ key: c.theme })), themeLabel),
+      popularity: bucketise(built.map((c) => ({ key: c.theme })), themeLabel),
       savedThemes: data.userThemes.length,
       usersWithSavedThemes,
     },
