@@ -12,11 +12,8 @@ import {
   Sparkles,
 } from "lucide-react"
 
-import { BarChart, Card, DonutChart, LineChart } from "@/components/charts"
-import {
-  getColorClassName,
-  type AvailableChartColorsKeys,
-} from "@/lib/utils/chartColors"
+import { Card, DonutChart, LineChart } from "@/components/charts"
+import { type AvailableChartColorsKeys } from "@/lib/utils/chartColors"
 import { cx } from "@/lib/utils/cx"
 
 import {
@@ -26,16 +23,24 @@ import {
   type FeatureKey,
 } from "../features"
 import type {
+  Bucket,
   DashboardView,
   FeatureAdoption,
   FeatureBreakdown,
   Features,
 } from "../types"
 import {
+  BarValue,
   ChartCard,
+  type Column,
+  DataTable,
+  Delta,
   Empty,
   KpiCard,
   KpiInline,
+  Num,
+  PartsBar,
+  PartsLegend,
   RankingList,
   SERIES,
   SectionHeading,
@@ -49,7 +54,7 @@ const round1 = (n: number) => Math.round(n * 10) / 10
 // "catching on" call is not made.
 const MIN_NEW_FOR_TREND = 3
 
-// One chart per group, paired by size so the rows of the grid line up.
+// The groups in the order the adoption table lists them.
 const GROUPS: FeatureGroup[] = [
   "Content blocks",
   "Appearance",
@@ -59,78 +64,160 @@ const GROUPS: FeatureGroup[] = [
   "AI",
 ]
 
-// The features of one group, most adopted first, on a scale shared by every
-// group so bars compare across charts. The bar is the all-time share; the
-// tick is the share among catalogues created in the period.
-function GroupChart({
-  group,
+// Above this many themes the rest fold into one neutral slice, so every
+// colour in the donut stays tellable apart.
+const MAX_THEME_SLICES = 5
+
+// A donut with its total in the middle and a legend beside it. Zero rows
+// are left to the caller to drop or explain.
+function DonutWithLegend({
   rows,
-  domain,
+  colors,
+  total,
+  unit,
+  detail,
+  footnote,
+}: {
+  rows: Bucket[]
+  colors: AvailableChartColorsKeys[]
+  total: number
+  unit: string
+  detail?: (i: number) => string
+  footnote?: React.ReactNode
+}) {
+  // Recharts skips empty slices, so the colours must line up with the
+  // slices that are drawn.
+  const drawn = rows
+    .map((r, i) => ({ ...r, color: colors[i] }))
+    .filter((r) => r.value > 0)
+  return (
+    <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row">
+      <div className="relative size-44 flex-none">
+        <DonutChart
+          data={drawn}
+          category="name"
+          value="value"
+          colors={drawn.map((d) => d.color)}
+          valueFormatter={number}
+          className="size-44"
+        />
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-head text-[26px] leading-none font-extrabold tracking-[-0.03em] text-ink tabular-nums">
+            {number(total)}
+          </span>
+          <span className="mt-1 text-[12.5px] text-ink-3">{unit}</span>
+        </div>
+      </div>
+      <div className="w-full min-w-0 flex-1 space-y-3">
+        <PartsLegend rows={rows} colors={colors} detail={detail} />
+        {footnote}
+      </div>
+    </div>
+  )
+}
+
+// Every feature in use, grouped, with its share of built catalogues. The
+// ones nobody uses yet fold into a single line instead of rows of zeros.
+function AdoptionTable({
+  adoption,
   selected,
   onSelect,
   showNew,
+  showTrend,
 }: {
-  group: FeatureGroup
-  rows: FeatureAdoption[]
-  domain: number
+  adoption: FeatureAdoption[]
   selected: FeatureKey
   onSelect: (key: FeatureKey) => void
   showNew: boolean
+  showTrend: boolean
 }) {
-  const sorted = [...rows].sort(
-    (a, b) => b.pctCatalogues - a.pctCatalogues || a.label.localeCompare(b.label),
-  )
-  const at = (v: number) => `${(v / domain) * 100}%`
-  return (
-    <Card className="p-4">
-      <h3 className="mb-2 text-[14px] font-extrabold tracking-[-0.01em] text-ink">
-        {group}
-      </h3>
-      <ul className="-mx-2 space-y-px">
-        {sorted.map((r) => {
-          const active = r.key === selected
-          return (
-            <li key={r.key}>
-              <button
-                type="button"
-                aria-pressed={active}
-                onClick={() => onSelect(r.key)}
-                title={`${r.label}: ${pct(r.pctCatalogues)} of all catalogues (${number(r.catalogues)})${showNew ? `, ${pct(r.newPct)} of those created in the period` : ""}`}
-                className={cx(
-                  "grid w-full grid-cols-[minmax(0,8.25rem)_minmax(0,1fr)_2.9rem] items-center gap-2.5 rounded-md px-2 py-[6px] text-left transition-colors focus-visible:outline-offset-[-2px]",
-                  active ? "bg-amber-soft" : "hover:bg-ink/[0.035]",
+  const used = adoption
+    .filter((f) => f.catalogues > 0)
+    .sort(
+      (a, b) =>
+        GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group) ||
+        b.pctCatalogues - a.pctCatalogues,
+    )
+  const unused = adoption.filter((f) => f.catalogues === 0)
+  const columns: Column<FeatureAdoption>[] = [
+    {
+      key: "feature",
+      header: "Feature",
+      cell: (f) => (
+        <button
+          type="button"
+          aria-pressed={f.key === selected}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect(f.key)
+          }}
+          className="text-left font-semibold whitespace-nowrap text-ink decoration-amber decoration-2 underline-offset-4 hover:underline"
+        >
+          {f.label}
+        </button>
+      ),
+    },
+    {
+      key: "catalogues",
+      header: "Catalogues",
+      align: "right",
+      cell: (f) => <Num value={f.catalogues} />,
+    },
+    {
+      key: "share",
+      header: "Share",
+      align: "right",
+      className: "w-[34%]",
+      cell: (f) => <BarValue value={f.pctCatalogues} label={pct(f.pctCatalogues)} />,
+    },
+    ...(showNew
+      ? [
+          {
+            key: "new",
+            header: "New in range",
+            align: "right",
+            cell: (f) => (
+              <span className="inline-flex items-center justify-end gap-2">
+                <span className="text-ink-2">{pct(f.newPct)}</span>
+                {showTrend && (
+                  <Delta value={f.newPct} previous={f.pctCatalogues} unit="pts" />
                 )}
-              >
-                <span
-                  className={cx(
-                    "truncate text-[13px] text-ink",
-                    active ? "font-bold" : "font-medium",
-                  )}
-                >
-                  {r.label}
-                </span>
-                <span className="relative h-2.5">
-                  <span
-                    className="absolute inset-y-0 left-0 rounded-r-[4px] bg-series-amber"
-                    style={{ width: at(r.pctCatalogues) }}
-                  />
-                  {showNew && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute -top-1 -bottom-1 w-[3px] rounded-full bg-ink ring-2 ring-card"
-                      style={{ left: `calc(${at(r.newPct)} - 1.5px)` }}
-                    />
-                  )}
-                </span>
-                <span className="text-right text-[12.5px] font-semibold text-ink tabular-nums">
-                  {pct(r.pctCatalogues)}
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </Card>
+              </span>
+            ),
+          } satisfies Column<FeatureAdoption>,
+        ]
+      : []),
+    {
+      key: "owners",
+      header: "Owners",
+      align: "right",
+      cell: (f) => <Num value={f.owners} />,
+    },
+  ]
+  return (
+    <>
+      {used.length === 0 ? (
+        <Empty label="No built catalogues use a tracked feature yet." />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={used}
+          rowKey={(f) => f.key}
+          groupOf={(f) => f.group}
+          onRowClick={(f) => onSelect(f.key)}
+          isSelected={(f) => f.key === selected}
+          minWidth={showNew ? 600 : 480}
+        />
+      )}
+      {unused.length > 0 && (
+        <p className="mt-4 text-[13px] leading-relaxed text-ink-3">
+          <span className="font-semibold text-ink-2">
+            Not used by any built catalogue yet:
+          </span>{" "}
+          {unused.map((f) => f.label).join(", ")}.
+        </p>
+      )}
+    </>
   )
 }
 
@@ -152,7 +239,7 @@ function ShareRing({ value }: { value: number }) {
           strokeDasharray={`${(Math.min(value, 100) / 100) * c} ${c}`}
         />
       </svg>
-      <span className="absolute inset-0 grid place-items-center font-head text-[19px] font-extrabold tracking-[-0.03em] text-ink">
+      <span className="absolute inset-0 grid place-items-center font-head text-[16px] font-extrabold tracking-[-0.03em] text-ink tabular-nums">
         {pct(value)}
       </span>
     </div>
@@ -181,72 +268,6 @@ function ChangePill({ change }: { change: number }) {
       {up ? "+" : "−"}
       {Math.abs(change)} pts
     </span>
-  )
-}
-
-// A part-to-whole as one bar: fixed colour per part, 2px gaps between them.
-function PartsBar({
-  rows,
-  colors,
-}: {
-  rows: { name: string; value: number }[]
-  colors: AvailableChartColorsKeys[]
-}) {
-  const total = rows.reduce((s, r) => s + r.value, 0)
-  if (total === 0) return null
-  return (
-    <div className="flex h-3 w-full gap-[2px]">
-      {rows.map((r, i) =>
-        r.value > 0 ? (
-          <span
-            key={r.name}
-            title={`${r.name}: ${number(r.value)} (${pct(round1((r.value / total) * 100))})`}
-            className={cx(
-              "h-full first:rounded-l-[4px] last:rounded-r-[4px]",
-              getColorClassName(colors[i] ?? "gray", "bg"),
-            )}
-            style={{ flexGrow: r.value, flexBasis: 0 }}
-          />
-        ) : null,
-      )}
-    </div>
-  )
-}
-
-function PartsLegend({
-  rows,
-  colors,
-  detail,
-}: {
-  rows: { name: string; value: number }[]
-  colors: AvailableChartColorsKeys[]
-  detail?: (i: number) => string
-}) {
-  const total = rows.reduce((s, r) => s + r.value, 0)
-  return (
-    <ul className="grid grid-cols-1 gap-y-2">
-      {rows.map((r, i) => (
-        <li key={r.name} className="flex min-w-0 items-baseline gap-2 text-sm">
-          <span
-            aria-hidden="true"
-            className={cx(
-              "size-2.5 flex-none translate-y-[1px] rounded-full",
-              getColorClassName(colors[i] ?? "gray", "bg"),
-            )}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="text-ink-2">{r.name}</span>
-            {detail && (
-              <span className="block text-[12.5px] text-ink-3">{detail(i)}</span>
-            )}
-          </span>
-          <span className="text-ink tabular-nums">{number(r.value)}</span>
-          <span className="w-11 text-right text-[13px] text-ink-3 tabular-nums">
-            {pct(total ? round1((r.value / total) * 100) : 0)}
-          </span>
-        </li>
-      ))}
-    </ul>
   )
 }
 
@@ -299,7 +320,7 @@ function FeatureDetail({
             {f.label}
           </h3>
           <p className="mt-1 text-[13px] text-ink-3">
-            {number(f.catalogues)} catalogues · {number(f.owners)} owners
+            {number(f.catalogues)} built catalogues · {number(f.owners)} owners
           </p>
         </div>
       </div>
@@ -307,7 +328,7 @@ function FeatureDetail({
       {showNew && (
         <div className="rounded-md bg-bg-alt/70 px-3 py-2.5">
           <p className="text-[12.5px] font-semibold text-ink-2">
-            New catalogues in this period
+            Built in this period
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span className="font-head text-[15px] font-extrabold text-ink tabular-nums">
@@ -331,9 +352,10 @@ function FeatureDetail({
   )
 }
 
-// Each type in use keeps its own slot, in SECTION_TYPES order; old keys and
-// anything unrecognised fold into one neutral slice.
-function SectionTypesPie({
+// Each type keeps its own slot, in SECTION_TYPES order; old keys and
+// anything unrecognised fold into one neutral slice. Types nobody uses are
+// named under the legend rather than listed at zero.
+function SectionTypesDonut({
   sectionTypes,
 }: {
   sectionTypes: Features["sectionTypes"]
@@ -345,51 +367,91 @@ function SectionTypesPie({
     (r) => r.replacedBy || !known.has(r.type),
   )
   const hasUnknown = folded.some((r) => !r.replacedBy && r.sections > 0)
-  const parts = [
-    ...current.map((t) => ({
+  const all = [
+    ...current.map((t, i) => ({
       name: t.label,
       value: rowOf.get(t.type)?.sections ?? 0,
+      catalogues: rowOf.get(t.type)?.catalogues ?? 0,
+      color: SERIES[i],
     })),
     {
       name: hasUnknown ? "Old and other types" : "Old types",
       value: folded.reduce((s, r) => s + r.sections, 0),
+      catalogues: 0,
+      color: "gray" as AvailableChartColorsKeys,
     },
   ]
-  const colors: AvailableChartColorsKeys[] = [
-    ...current.map((_, i) => SERIES[i]),
-    "gray",
-  ]
-  // Recharts skips empty slices, so the colours must line up with the
-  // slices that are drawn.
-  const drawn = parts
-    .map((p, i) => ({ ...p, color: colors[i] }))
-    .filter((p) => p.value > 0)
+  const shown = all.filter((p) => p.value > 0)
+  const unused = all.filter((p) => p.value === 0 && p.color !== "gray")
   const oldInUse = folded.filter((r) => r.replacedBy && r.sections > 0)
 
   if (sectionTypes.totalSections === 0) return <Empty label="No sections yet." />
 
   return (
-    <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
-      <DonutChart
-        data={drawn}
-        category="name"
-        value="value"
-        variant="pie"
-        colors={drawn.map((p) => p.color)}
-        valueFormatter={number}
-        className="mx-auto h-44 w-44 flex-none"
-      />
-      <div className="min-w-0 flex-1 space-y-3">
-        <PartsLegend rows={parts} colors={colors} />
-        <p className="border-t border-line pt-3 text-[12.5px] text-ink-3">
-          {oldInUse.length === 0
-            ? "No old section keys left."
-            : `Old keys still stored: ${oldInUse
+    <DonutWithLegend
+      rows={shown}
+      colors={shown.map((p) => p.color)}
+      total={sectionTypes.totalSections}
+      unit="sections"
+      detail={(i) =>
+        shown[i].color === "gray"
+          ? "keys saved before a rename"
+          : `in ${number(shown[i].catalogues)} catalogues`
+      }
+      footnote={
+        (unused.length > 0 || oldInUse.length > 0) && (
+          <p className="border-t border-line pt-3 text-[12.5px] leading-relaxed text-ink-3">
+            {unused.length > 0 &&
+              `Not used yet: ${unused.map((p) => p.name).join(", ")}. `}
+            {oldInUse.length > 0 &&
+              `Old keys still stored: ${oldInUse
                 .map((r) => `${r.label} ${number(r.sections)} (read as ${r.replacedBy})`)
-                .join(" · ")}`}
-        </p>
-      </div>
-    </div>
+                .join(" · ")}.`}
+          </p>
+        )
+      }
+    />
+  )
+}
+
+// Built catalogues by theme: each has exactly one, so the parts add up.
+function ThemesDonut({
+  popularity,
+  total,
+}: {
+  popularity: Bucket[]
+  total: number
+}) {
+  if (total === 0) return <Empty label="No built catalogues yet." />
+  const top = popularity.slice(0, MAX_THEME_SLICES)
+  const rest = popularity.slice(MAX_THEME_SLICES)
+  const rows = rest.length
+    ? [
+        ...top,
+        {
+          name: `${rest.length} other ${rest.length === 1 ? "theme" : "themes"}`,
+          value: rest.reduce((s, r) => s + r.value, 0),
+        },
+      ]
+    : top
+  const colors: AvailableChartColorsKeys[] = [
+    ...top.map((_, i) => SERIES[i]),
+    ...(rest.length ? (["gray"] as const) : []),
+  ]
+  return (
+    <DonutWithLegend
+      rows={rows}
+      colors={colors}
+      total={total}
+      unit="catalogues"
+      footnote={
+        rest.length > 0 && (
+          <p className="border-t border-line pt-3 text-[12.5px] leading-relaxed text-ink-3">
+            Other: {rest.map((r) => `${r.name} ${number(r.value)}`).join(" · ")}
+          </p>
+        )
+      }
+    />
   )
 }
 
@@ -424,7 +486,7 @@ export default function FeaturesTab({
   // compare against the all-time share.
   const showNew =
     features.newCatalogues > 0 &&
-    features.newCatalogues < features.totalCatalogues
+    features.newCatalogues < features.builtCatalogues
   // The biggest gain among new catalogues over the all-time share.
   const rising =
     showNew && features.newCatalogues >= MIN_NEW_FOR_TREND
@@ -434,20 +496,11 @@ export default function FeaturesTab({
           .sort((a, b) => b.change - a.change)[0]
       : undefined
 
-  // One scale for every group chart, rounded up to the next ten.
-  const peak = Math.max(
-    ...features.adoption.flatMap((r) =>
-      showNew ? [r.pctCatalogues, r.newPct] : [r.pctCatalogues],
-    ),
-    1,
-  )
-  const domain = Math.min(100, Math.ceil(peak / 10) * 10)
-
   return (
     <div className="space-y-6">
       <SectionHeading
         title="Feature adoption"
-        subtitle="Which features earn their keep? Adoption is from each catalogue's current settings; new catalogues, AI usage and activity follow the selected period."
+        subtitle="Which features earn their keep? Shares are of built catalogues, from their current settings; empty drafts can't use a feature. New catalogues, AI usage and activity follow the selected period."
       />
 
       <section
@@ -457,18 +510,21 @@ export default function FeaturesTab({
         <KpiCard
           label="Features per catalogue"
           icon={Layers}
+          scope="All time"
           value={String(features.featuresPerCatalogue)}
-          hint={`average, of ${FEATURES.length} tracked`}
+          hint={`average per built catalogue, of ${FEATURES.length} tracked`}
         />
         <KpiCard
           label="Most adopted"
           icon={Award}
+          scope="All time"
           value={top.catalogues ? pct(top.pctCatalogues) : "—"}
           hint={top.catalogues ? `${top.label} · ${number(top.catalogues)} catalogues` : "No catalogues yet"}
         />
         <KpiCard
           label="Catching on"
           icon={Rocket}
+          scope="In range"
           value={rising ? `+${rising.change} pts` : "—"}
           hint={
             rising
@@ -483,57 +539,57 @@ export default function FeaturesTab({
         <KpiCard
           label="Tracking integrations"
           icon={Radar}
+          scope="All time"
           value={number(features.trackedCatalogues)}
           hint={`GA4 ${number(byKey.get("googleAnalytics")?.catalogues ?? 0)} · Meta Pixel ${number(byKey.get("metaPixel")?.catalogues ?? 0)}`}
         />
       </section>
 
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div>
-          <h3 className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
-            Adoption by feature
-          </h3>
-          <p className="mt-0.5 text-[13px] text-ink-3">
-            Share of all {number(features.totalCatalogues)} catalogues using each
-            one. Pick a feature for details.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px] text-ink-2">
-          <span className="inline-flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="h-2.5 w-4 rounded-r-[3px] bg-series-amber"
-            />
-            All catalogues
-          </span>
-          {showNew && (
-            <span className="inline-flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="h-3.5 w-[3px] rounded-full bg-ink"
-              />
-              {`Created in this period (${number(features.newCatalogues)})`}
-            </span>
-          )}
-        </div>
-      </div>
+      <section
+        key={`${animationKey}-feat-mix`}
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
+      >
+        <ChartCard
+          title="Content blocks"
+          subtitle={`All ${number(features.sectionTypes.totalSections)} sections, by type`}
+          scope="All time"
+        >
+          <SectionTypesDonut sectionTypes={features.sectionTypes} />
+        </ChartCard>
+        <ChartCard
+          title="Appearance"
+          subtitle={`The ${number(features.builtCatalogues)} built catalogues, by theme`}
+          scope="All time"
+        >
+          <ThemesDonut
+            popularity={themes.popularity}
+            total={features.builtCatalogues}
+          />
+        </ChartCard>
+      </section>
 
       <section
         key={`${animationKey}-feat-adoption`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        className="animate-chart-in grid grid-cols-1 items-start gap-6 lg:grid-cols-3"
       >
-        <div className="grid grid-cols-1 content-start gap-4 sm:grid-cols-2 lg:col-span-2">
-          {GROUPS.map((group) => (
-            <GroupChart
-              key={group}
-              group={group}
-              rows={features.adoption.filter((f) => f.group === group)}
-              domain={domain}
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Adoption by feature"
+            subtitle={`Share of the ${number(features.builtCatalogues)} built catalogues using each one${
+              showNew
+                ? `, and of the ${number(features.newCatalogues)} built in range`
+                : ""
+            }. Pick a feature for details.`}
+            scope="All time"
+          >
+            <AdoptionTable
+              adoption={features.adoption}
               selected={selected.key}
               onSelect={selectFeature}
               showNew={showNew}
+              showTrend={features.newCatalogues >= MIN_NEW_FOR_TREND}
             />
-          ))}
+          </ChartCard>
         </div>
 
         <Card ref={detailRef} className="scroll-mt-24">
@@ -543,36 +599,6 @@ export default function FeaturesTab({
             showNew={showNew}
           />
         </Card>
-      </section>
-
-      <section
-        key={`${animationKey}-feat-content`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
-      >
-        <ChartCard
-          title="Section types"
-          subtitle={`Share of all ${number(features.sectionTypes.totalSections)} sections, by type`}
-        >
-          <SectionTypesPie sectionTypes={features.sectionTypes} />
-        </ChartCard>
-
-        <ChartCard title="Theme popularity" subtitle="Catalogues per theme">
-          {themes.popularity.length === 0 ? (
-            <Empty label="No catalogues yet." />
-          ) : (
-            <BarChart
-              data={themes.popularity}
-              index="name"
-              categories={["value"]}
-              colors={["amber"]}
-              layout="vertical"
-              showLegend={false}
-              valueFormatter={number}
-              yAxisWidth={96}
-              className="h-full min-h-56 flex-1"
-            />
-          )}
-        </ChartCard>
       </section>
 
       {/* The AI story gets its own glass panel around its cards. */}
@@ -590,13 +616,19 @@ export default function FeaturesTab({
               How the AI assistant is used
             </h2>
             <p className="mt-1 text-[15px] text-ink-2">
-              Turns, credits and the people behind them in the selected period
+              Turns, credits and the people behind them in the selected
+              period. AI users are a share of the {number(ai.activeUsers)}{" "}
+              users active in it (views, a new catalogue or an AI turn).
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <KpiInline label="AI turns" value={number(ai.turns)} />
+            <KpiInline
+              label="AI users"
+              value={`${number(ai.users)} · ${pct(ai.userPct)}`}
+            />
             <KpiInline label="Credits spent" value={number(ai.creditsSpent)} />
-            <KpiInline label="Refunded turns" value={pct(ai.refundRate)} />
+            <KpiInline label="Failed (refunded)" value={pct(ai.refundRate)} />
           </div>
         </div>
 

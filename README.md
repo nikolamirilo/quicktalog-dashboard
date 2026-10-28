@@ -10,7 +10,24 @@ Set these in `.env.local`:
 DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<host>:6543/postgres
 ADMIN_USERNAME=...
 ADMIN_PASSWORD=...
+# Signs the admin session cookie. At least 32 random characters, e.g.
+# `openssl rand -base64 48`. Sign-in is refused until it is set.
+SESSION_SECRET=...
+
+# Optional. Internal and test accounts, left out of every figure by default
+# and out of every outreach list: addresses and whole domains.
+INTERNAL_EMAILS=me@example.com,@quicktalog.app
+
+# Optional. A read-only Paddle Billing API key with metrics.read,
+# subscription.read and transaction.read. Without it, Revenue shows an MRR
+# estimate from list prices and Customers reads the database mirror.
+PADDLE_API_KEY=...
+# PADDLE_ENV=sandbox   # to read the sandbox instead of live
 ```
+
+The page and every API route check the session cookie on the server before
+reading any data. Outreach lists are exported from `/api/outreach/<list>` as
+CSV (or `?format=emails` for a comma-separated list) by a signed-in admin.
 
 Then run the development server:
 

@@ -1,213 +1,189 @@
 "use client"
 
-import {
-  CalendarX,
-  Percent,
-  TrendingDown,
-  Wallet,
-} from "lucide-react"
+import { DollarSign, RotateCcw, ShoppingCart, TrendingUp } from "lucide-react"
 
-import { AreaChart, BarChart, Card, DonutChart } from "@/components/charts"
+import { AreaChart, BarChart } from "@/components/charts"
 
-import type { DashboardView } from "../types"
+import type { TabProps } from "../types"
 import {
   ChartCard,
-  colorsFor,
-  DonutLegend,
+  Delta,
   Empty,
   KpiCard,
-  RankingList,
+  Note,
   SectionHeading,
   money,
   number,
   pct,
-  toRanking,
 } from "../ui"
 
-// Money: who is paying, on which plan, and who is about to leave.
-export default function RevenueTab({
-  view,
-  animationKey,
-}: {
-  view: DashboardView
-  animationKey: string
-}) {
-  const { subscriptions, revenue, plans, totals } = view
+// Money, from Paddle: MRR, what was collected, refunds and checkout. Without
+// Paddle the MRR is an estimate at list prices and the rest stays empty.
+export default function RevenueTab({ view, animationKey }: TabProps) {
+  const { revenue: r, customers } = view
+  const cur = (n: number) => money(n, r.currency)
+  const mrrHint =
+    r.mrrSource === "metrics"
+      ? "at the end of the range, vs its start"
+      : r.mrrSource === "subscriptions"
+        ? "paying subscriptions at their price, before discounts"
+        : `estimate: paying subscriptions at monthly list price${r.unpriced ? `, ${number(r.unpriced)} without a known price left out` : ""}`
 
   return (
     <div className="space-y-6">
       <SectionHeading
-        title="Revenue & retention"
-        subtitle="Current subscription state · are we converting and keeping payers?"
+        title="Revenue"
+        subtitle="Recurring revenue, what was collected, refunds and checkout conversion"
       />
+
+      {!r.connected && (
+        <Note tone="amber">
+          Paddle isn&apos;t connected. Add a read-only <code>PADDLE_API_KEY</code>{" "}
+          with the metrics.read, subscription.read and transaction.read
+          permissions to the environment. Until then MRR is an estimate from list
+          prices, and revenue, refunds and checkout stay empty.
+        </Note>
+      )}
 
       <section
         key={`${animationKey}-rev-kpi`}
         className="animate-chart-in grid grid-cols-2 gap-4 lg:grid-cols-4"
       >
         <KpiCard
-          label="Active payers"
-          icon={Wallet}
-          value={number(revenue.activePayers)}
-          hint={
-            revenue.mrr != null
-              ? `${money(revenue.mrr)} MRR · ${money(revenue.arr ?? 0)} ARR`
-              : "MRR needs Paddle price sync"
+          label={r.mrrSource === "estimate" ? "MRR (estimate)" : "MRR"}
+          icon={TrendingUp}
+          value={cur(r.mrr)}
+          delta={
+            r.mrrSource === "metrics" ? (
+              <Delta value={r.mrr} previous={r.mrrStart} />
+            ) : undefined
           }
+          hint={mrrHint}
+          scope={r.mrrSource === "metrics" ? "In range" : "Right now"}
         />
         <KpiCard
-          label="Paid conversion"
-          icon={Percent}
-          value={pct(subscriptions.paidConversionPct)}
-          hint="active payers ÷ all users"
+          label="Net revenue"
+          icon={DollarSign}
+          value={r.revenue == null ? "—" : cur(r.revenue)}
+          pending={r.revenue == null}
+          hint={r.revenue == null ? "from Paddle" : "collected in range"}
+          scope="In range"
         />
         <KpiCard
-          label="Churn rate"
-          icon={TrendingDown}
-          value={pct(subscriptions.churnRate)}
-          hint="canceled ÷ (active + canceled)"
+          label="Refunds"
+          icon={RotateCcw}
+          value={r.refunds == null ? "—" : cur(r.refunds)}
+          pending={r.refunds == null}
+          hint={
+            r.refundRate == null
+              ? "from Paddle; first purchases have a 10-day guarantee"
+              : `${pct(r.refundRate)} of revenue`
+          }
+          scope="In range"
         />
         <KpiCard
-          label="Scheduled cancellations"
-          icon={CalendarX}
-          value={number(subscriptions.scheduledCancellations)}
-          hint="upcoming churn (early warning)"
+          label="Checkout conversion"
+          icon={ShoppingCart}
+          value={r.checkout ? pct(r.checkout.rate) : "—"}
+          pending={!r.checkout}
+          hint={
+            r.checkout
+              ? `${number(r.checkout.completed)} of ${number(r.checkout.sessions)} checkouts`
+              : `${number(customers.checkoutAbandoned)} opened checkout and never subscribed`
+          }
+          scope={r.checkout ? "In range" : "All time"}
         />
       </section>
 
       <section
-        key={`${animationKey}-rev-funnel`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
+        key={`${animationKey}-rev-trend`}
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
-        <ChartCard title="Conversion funnel">
-          <RankingList
-            rows={toRanking(subscriptions.conversionFunnel)}
-            valueLabel="Customers"
-          />
-        </ChartCard>
-
-        <ChartCard title="Subscription status">
-          {subscriptions.statusMix.length === 0 ? (
-            <Empty label="No subscriptions." />
+        <ChartCard title="MRR" subtitle="At the end of each period" scope="In range">
+          {r.mrrSeries ? (
+            <AreaChart
+              data={r.mrrSeries}
+              index="date"
+              categories={["MRR"]}
+              colors={["amber"]}
+              valueFormatter={cur}
+              showLegend={false}
+              yAxisWidth={64}
+              startEndOnly
+              className="h-60"
+            />
           ) : (
-            <>
-              <div className="flex flex-1 items-center justify-center">
-                <DonutChart
-                  data={subscriptions.statusMix}
-                  category="name"
-                  value="value"
-                  colors={colorsFor(subscriptions.statusMix, "subscription")}
-                  valueFormatter={number}
-                  className="h-44 w-44"
-                />
-              </div>
-              <div className="pt-4">
-                <DonutLegend
-                  data={subscriptions.statusMix}
-                  colors={colorsFor(subscriptions.statusMix, "subscription")}
-                />
-              </div>
-            </>
+            <Empty label="Needs Paddle's metrics (metrics.read)." />
           )}
         </ChartCard>
+        <ChartCard title="Net revenue" subtitle="Collected per period" scope="In range">
+          {r.revenueSeries ? (
+            <BarChart
+              data={r.revenueSeries}
+              index="date"
+              categories={["Revenue"]}
+              colors={["amber"]}
+              valueFormatter={cur}
+              showLegend={false}
+              yAxisWidth={64}
+              className="h-60"
+            />
+          ) : (
+            <Empty label="Needs Paddle's metrics (metrics.read)." />
+          )}
+        </ChartCard>
+      </section>
 
-        <ChartCard title="Active payers by plan">
-          {revenue.byPlan.length === 0 ? (
-            <Empty label="No active payers." />
+      <section
+        key={`${animationKey}-rev-mix`}
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
+      >
+        <ChartCard
+          title="MRR by plan"
+          subtitle={
+            r.mrrSource === "estimate"
+              ? "Estimate at monthly list prices"
+              : "Paying subscriptions, per month"
+          }
+          scope="Right now"
+        >
+          {r.byPlan.length === 0 ? (
+            <Empty label="No paying subscriptions." />
           ) : (
             <BarChart
-              data={revenue.byPlan}
+              data={r.byPlan}
+              index="name"
+              categories={["value"]}
+              colors={["amber"]}
+              layout="vertical"
+              showLegend={false}
+              valueFormatter={cur}
+              yAxisWidth={88}
+              className="h-full min-h-48 flex-1"
+            />
+          )}
+        </ChartCard>
+        <ChartCard
+          title="Billing cycle"
+          subtitle="Paying subscriptions, monthly or annual"
+          scope="Right now"
+        >
+          {customers.billing ? (
+            <BarChart
+              data={customers.billing}
               index="name"
               categories={["value"]}
               colors={["amber"]}
               layout="vertical"
               showLegend={false}
               valueFormatter={number}
-              yAxisWidth={88}
-              className="h-full min-h-56 flex-1"
+              yAxisWidth={72}
+              className="h-full min-h-48 flex-1"
             />
-          )}
-        </ChartCard>
-      </section>
-
-      <div key={`${animationKey}-rev-trend`} className="animate-chart-in">
-        <Card>
-          <h3 className="mb-2 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
-            New subscriptions over time
-          </h3>
-          <AreaChart
-            data={subscriptions.newOverTime}
-            index="date"
-            categories={["New subscriptions"]}
-            colors={["amber"]}
-            valueFormatter={number}
-            showLegend={false}
-            yAxisWidth={44}
-            startEndOnly
-            className="h-52"
-          />
-        </Card>
-      </div>
-
-      <SectionHeading
-        title="Plans"
-        subtitle="Plan mix across users who signed up in the selected period"
-      />
-
-      <section
-        key={`${animationKey}-plans`}
-        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
-      >
-        <ChartCard title="Users by plan">
-          {plans.byUsers.length === 0 ? (
-            <Empty />
           ) : (
-            <>
-              <div className="flex flex-1 items-center justify-center">
-                <div className="relative h-44 w-44">
-                  <DonutChart
-                    data={plans.byUsers}
-                    category="name"
-                    value="value"
-                    colors={colorsFor(plans.byUsers, "plan")}
-                    valueFormatter={number}
-                    className="h-44 w-44"
-                  />
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-[13px] text-ink-3">
-                      Users
-                    </p>
-                    <p className="font-head text-2xl font-extrabold tracking-[-0.03em] tabular-nums text-ink">
-                      {number(totals.users)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-4">
-                <DonutLegend data={plans.byUsers} colors={colorsFor(plans.byUsers, "plan")} />
-              </div>
-            </>
+            <Empty label="Needs Paddle's subscriptions (subscription.read)." />
           )}
         </ChartCard>
-
-        <div className="lg:col-span-2">
-          <ChartCard title="Users per plan">
-            {plans.byUsers.length === 0 ? (
-              <Empty />
-            ) : (
-              <BarChart
-                data={plans.byUsers}
-                index="name"
-                categories={["value"]}
-                colors={["amber"]}
-                showLegend={false}
-                valueFormatter={number}
-                yAxisWidth={40}
-                className="h-full min-h-64 flex-1"
-              />
-            )}
-          </ChartCard>
-        </div>
       </section>
     </div>
   )

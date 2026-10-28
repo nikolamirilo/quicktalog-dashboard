@@ -1,31 +1,21 @@
 "use client"
 
-import { useEffect } from "react"
 import { useActionState } from "react"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
 
 import Backdrop from "@/components/Backdrop"
-import { setAuthenticated } from "@/lib/auth"
 
 import { signIn, type SignInState } from "./actions"
 
+// On success the server action sets the session cookie and redirects, so the
+// form only ever shows an error.
 export default function LoginForm({ next }: { next: string }) {
-  const router = useRouter()
   const [state, action, pending] = useActionState<SignInState, FormData>(
     signIn,
     null,
   )
 
-  useEffect(() => {
-    if (state && "ok" in state && state.ok) {
-      setAuthenticated(state.username)
-      router.replace(next)
-    }
-  }, [state, router, next])
-
-  const errorMessage = state && "error" in state ? state.error : undefined
-  const succeeded = !!(state && "ok" in state && state.ok)
+  const errorMessage = state?.error
 
   const inputCls =
     "h-12 w-full rounded-md border-[1.5px] border-line-strong bg-card px-3.5 text-base text-ink transition-[border-color,box-shadow] placeholder:text-placeholder hover:border-line-hover focus-visible:border-amber focus-visible:ring-4 focus-visible:ring-amber/25 focus-visible:outline-none"
@@ -97,14 +87,10 @@ export default function LoginForm({ next }: { next: string }) {
 
           <button
             type="submit"
-            disabled={pending || succeeded}
+            disabled={pending}
             className="inline-flex h-11 w-full items-center justify-center rounded-full bg-amber px-[22px] text-[15px] font-semibold text-on-amber shadow-amber transition duration-200 hover:-translate-y-0.5 hover:bg-amber-hover active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
-            {pending
-              ? "Signing in..."
-              : succeeded
-                ? "Redirecting..."
-                : "Sign in"}
+            {pending ? "Signing in..." : "Sign in"}
           </button>
         </form>
       </div>
