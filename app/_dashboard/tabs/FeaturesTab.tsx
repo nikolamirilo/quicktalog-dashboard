@@ -601,12 +601,10 @@ export default function FeaturesTab({
         </Card>
       </section>
 
-      {/* The AI story gets its own glass panel around its cards. */}
-      <section
-        key={`${animationKey}-feat-ai`}
-        className="qt-card glass glass-panel animate-chart-in rounded-cta p-5 sm:p-8"
-      >
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      {/* The AI cards sit on the page like every other chart: a glass panel
+          around them would stack a second layer of glass and turn them white. */}
+      <section key={`${animationKey}-feat-ai`} className="animate-chart-in">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-xl">
             <span className="inline-flex items-center gap-[7px] rounded-full border border-amber/30 bg-amber/12 px-3 py-1.5 text-[12.5px] font-bold tracking-[0.06em] text-amber-ink uppercase">
               <Sparkles className="size-3.5" aria-hidden="true" />
