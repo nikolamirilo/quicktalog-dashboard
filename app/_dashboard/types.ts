@@ -6,6 +6,8 @@ export type Ranking = {
   name: string
   value: number
   meta?: string
+  // Makes the name a link, opened in a new tab.
+  href?: string
 }
 
 // Rows for the line, area and bar charts: a `date` label plus one key per

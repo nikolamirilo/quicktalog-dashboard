@@ -64,6 +64,10 @@ const dayLabel = (key: string) => {
 const titleCase = (s: string) =>
   s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
 
+// A catalogue's public page. Names are unique slugs.
+const catalogueUrl = (name: string) =>
+  `https://www.quicktalog.app/catalogues/${encodeURIComponent(name)}`
+
 const median = (xs: number[]): number => {
   if (xs.length === 0) return 0
   const s = [...xs].sort((a, b) => a - b)
@@ -614,7 +618,7 @@ export function computeView(
           id,
           name: c?.name ?? id.slice(0, 8),
           value: viewsByCatId.get(id) ?? 0,
-          meta: c?.business_type ? titleCase(c.business_type) : undefined,
+          href: c ? catalogueUrl(c.name) : undefined,
         }
       })
       .filter((r) => r.value > 0)
