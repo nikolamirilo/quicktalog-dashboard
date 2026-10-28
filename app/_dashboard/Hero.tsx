@@ -133,7 +133,7 @@ export default function Hero({
   controls: React.ReactNode
 }) {
   return (
-    <section className="night night-band qt-card animate-chart-in rounded-cta px-5 py-7 sm:px-8 md:px-10 md:py-10">
+    <section className="qt-card glass glass-panel animate-chart-in rounded-cta px-5 py-7 sm:px-8 md:px-10 md:py-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-2">

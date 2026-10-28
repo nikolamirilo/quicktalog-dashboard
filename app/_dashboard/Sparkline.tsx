@@ -9,8 +9,7 @@ export type SparkPoint = { date: string; value: number }
 
 // A single-series trend for the hero tiles: a 2px line over a fading fill,
 // with a hover dot; the hovered point goes to `onActive` so the tile can show
-// it. Coloured by the first series slot, so it takes the night step inside
-// `.night`.
+// it. Coloured by the first series slot.
 export default function Sparkline({
   points,
   format,
@@ -82,7 +81,7 @@ export default function Sparkline({
       </svg>
       {active && (
         <span
-          className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current ring-2 ring-[#0e0d0a]"
+          className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current ring-2 ring-card"
           style={{ left: `${left}%`, top: `${(y(active.value) / H) * 100}%` }}
         />
       )}

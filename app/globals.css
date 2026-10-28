@@ -28,7 +28,7 @@
   --color-amber-ink: #8a5a00;
   --color-amber-soft: #fff4dc;
   --color-navy: #010e58;
-  /* Label on an amber button: always ink, never white, also inside .night. */
+  /* Label on an amber button: always ink, never white. */
   --color-on-amber: #16140f;
 
   /* Status */
@@ -130,8 +130,7 @@
    Ported from the app's Glass Effect Spec (quicktalog-app, test branch:
    src/lib/catalogue/glass.ts + src/styles/catalogue-chrome.css), "Frosted"
    preset: frost 20px, splay 12px, tint 70%, saturate 160%, sheen 0.03/px of
-   splay; dark grounds use the spec's dark edge/light/shade values and a
-   quarter of the sheen. */
+   splay. Every surface uses this light variant; there are no dark bands. */
 :root {
   --glass-fill: #ffffff;
   --glass-tint: 70%;
@@ -187,90 +186,18 @@
   }
 }
 
+/* A glass section that holds glass cards (the hero, the AI section). The cards
+   inside take the stronger tint, so they read as their own surfaces on it. */
+@utility glass-panel {
+  & .glass {
+    --glass-tint: var(--glass-tint-strong);
+  }
+}
+
 /* Without backdrop-filter the tint alone has to carry the surface. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
     --glass-tint: 94%;
-  }
-  .night {
-    --glass-tint: 10%;
-  }
-}
-
-/* ---------- Night ----------
-   The design system's dark moments (CTA band, AI section). Inside `.night`
-   every token points at its on-night value, so cards, charts, tooltips and
-   rankings re-theme themselves. Text: white and night-copy (#E7E3DA) per the
-   design system, captions in the app's on-dark-muted (#CFC8BA, 5.5:1 or more
-   under the glow). Series: the dataviz dark steps in the same slot order,
-   validated on the night glass surface (#1A1916): worst adjacent CVD ΔE 13.0,
-   normal vision 19.7, every mark at least 3:1. */
-.night {
-  color-scheme: dark;
-  color: var(--color-ink);
-  --color-ink: #ffffff;
-  --color-ink-2: #e7e3da;
-  --color-ink-3: #cfc8ba;
-  --color-placeholder: #a79f90;
-  --color-card: #1f1c16;
-  --color-bg-alt: rgb(255 255 255 / 0.06);
-  --color-line: rgb(255 255 255 / 0.1);
-  --color-line-strong: rgb(255 255 255 / 0.18);
-  --color-line-hover: rgb(255 255 255 / 0.28);
-  --color-amber-ink: #ffc75a;
-  --color-amber-soft: rgb(255 176 32 / 0.14);
-  --color-success: #4ade80;
-  --color-red: #e66767;
-  --color-series-amber: #c98500;
-  --color-series-violet: #9085e9;
-  --color-series-magenta: #d55181;
-  --color-series-green: #008300;
-  --color-series-blue: #3987e5;
-  --color-series-aqua: #199e70;
-  --glass-tint: 5%;
-  --glass-tint-strong: 16%;
-  --glass-sheen-a: 0.09;
-  --glass-edge: 0.15;
-  --glass-light: 0.12;
-  --glass-shade: 0.3;
-  --glass-shadow: 0 24px 48px -28px rgb(0 0 0 / 0.7);
-  --glass-caption: #cfc8ba;
-}
-
-/* The design system's CTA band: night ground, a faint grid and an amber glow
-   rising from below the band. */
-@utility night-band {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: #0e0d0a;
-
-  &::before {
-    position: absolute;
-    inset: 0;
-    z-index: -2;
-    content: "";
-    background-image:
-      linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
-    background-size: 6rem 4rem;
-  }
-
-  &::after {
-    position: absolute;
-    left: 50%;
-    bottom: -340px;
-    z-index: -1;
-    width: 900px;
-    height: 620px;
-    content: "";
-    transform: translateX(-50%);
-    background: radial-gradient(
-      closest-side,
-      rgb(255 176 32 / 0.28),
-      rgb(255 176 32 / 0.08) 55%,
-      transparent
-    );
   }
 }
 
