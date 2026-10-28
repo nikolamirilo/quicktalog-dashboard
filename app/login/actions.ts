@@ -1,9 +1,17 @@
 "use server"
 
-export type SignInState =
-  | { ok: true; username: string }
-  | { error: string }
-  | null
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+
+import {
+  SESSION_COOKIE,
+  safeNext,
+  sameText,
+  sessionConfigured,
+  sessionCookie,
+} from "@/lib/session"
+
+export type SignInState = { error: string } | null
 
 export async function signIn(
   _prev: SignInState,
@@ -26,9 +34,27 @@ export async function signIn(
     }
   }
 
-  if (username !== expectedUser || password !== expectedPass) {
+  if (!sessionConfigured()) {
+    return {
+      error:
+        "Sessions are not configured. Set SESSION_SECRET (32 characters or more) in .env",
+    }
+  }
+
+  // Both checks run every time, so timing doesn't tell which one failed.
+  const userOk = sameText(username, expectedUser)
+  const passOk = sameText(password, expectedPass)
+  if (!userOk || !passOk) {
     return { error: "Invalid username or password." }
   }
 
-  return { ok: true, username }
+  const jar = await cookies()
+  jar.set(sessionCookie(username))
+  redirect(safeNext(formData.get("next")))
+}
+
+export async function signOut() {
+  const jar = await cookies()
+  jar.delete(SESSION_COOKIE)
+  redirect("/login")
 }

@@ -13,10 +13,7 @@ import {
 } from "lucide-react"
 
 import { BarChart, Card, DonutChart, LineChart } from "@/components/charts"
-import {
-  getColorClassName,
-  type AvailableChartColorsKeys,
-} from "@/lib/utils/chartColors"
+import { type AvailableChartColorsKeys } from "@/lib/utils/chartColors"
 import { cx } from "@/lib/utils/cx"
 
 import {
@@ -36,6 +33,8 @@ import {
   Empty,
   KpiCard,
   KpiInline,
+  PartsBar,
+  PartsLegend,
   RankingList,
   SERIES,
   SectionHeading,
@@ -181,72 +180,6 @@ function ChangePill({ change }: { change: number }) {
       {up ? "+" : "−"}
       {Math.abs(change)} pts
     </span>
-  )
-}
-
-// A part-to-whole as one bar: fixed colour per part, 2px gaps between them.
-function PartsBar({
-  rows,
-  colors,
-}: {
-  rows: { name: string; value: number }[]
-  colors: AvailableChartColorsKeys[]
-}) {
-  const total = rows.reduce((s, r) => s + r.value, 0)
-  if (total === 0) return null
-  return (
-    <div className="flex h-3 w-full gap-[2px]">
-      {rows.map((r, i) =>
-        r.value > 0 ? (
-          <span
-            key={r.name}
-            title={`${r.name}: ${number(r.value)} (${pct(round1((r.value / total) * 100))})`}
-            className={cx(
-              "h-full first:rounded-l-[4px] last:rounded-r-[4px]",
-              getColorClassName(colors[i] ?? "gray", "bg"),
-            )}
-            style={{ flexGrow: r.value, flexBasis: 0 }}
-          />
-        ) : null,
-      )}
-    </div>
-  )
-}
-
-function PartsLegend({
-  rows,
-  colors,
-  detail,
-}: {
-  rows: { name: string; value: number }[]
-  colors: AvailableChartColorsKeys[]
-  detail?: (i: number) => string
-}) {
-  const total = rows.reduce((s, r) => s + r.value, 0)
-  return (
-    <ul className="grid grid-cols-1 gap-y-2">
-      {rows.map((r, i) => (
-        <li key={r.name} className="flex min-w-0 items-baseline gap-2 text-sm">
-          <span
-            aria-hidden="true"
-            className={cx(
-              "size-2.5 flex-none translate-y-[1px] rounded-full",
-              getColorClassName(colors[i] ?? "gray", "bg"),
-            )}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="text-ink-2">{r.name}</span>
-            {detail && (
-              <span className="block text-[12.5px] text-ink-3">{detail(i)}</span>
-            )}
-          </span>
-          <span className="text-ink tabular-nums">{number(r.value)}</span>
-          <span className="w-11 text-right text-[13px] text-ink-3 tabular-nums">
-            {pct(total ? round1((r.value / total) * 100) : 0)}
-          </span>
-        </li>
-      ))}
-    </ul>
   )
 }
 
@@ -457,18 +390,21 @@ export default function FeaturesTab({
         <KpiCard
           label="Features per catalogue"
           icon={Layers}
+          scope="All time"
           value={String(features.featuresPerCatalogue)}
           hint={`average, of ${FEATURES.length} tracked`}
         />
         <KpiCard
           label="Most adopted"
           icon={Award}
+          scope="All time"
           value={top.catalogues ? pct(top.pctCatalogues) : "—"}
           hint={top.catalogues ? `${top.label} · ${number(top.catalogues)} catalogues` : "No catalogues yet"}
         />
         <KpiCard
           label="Catching on"
           icon={Rocket}
+          scope="In range"
           value={rising ? `+${rising.change} pts` : "—"}
           hint={
             rising
@@ -483,6 +419,7 @@ export default function FeaturesTab({
         <KpiCard
           label="Tracking integrations"
           icon={Radar}
+          scope="All time"
           value={number(features.trackedCatalogues)}
           hint={`GA4 ${number(byKey.get("googleAnalytics")?.catalogues ?? 0)} · Meta Pixel ${number(byKey.get("metaPixel")?.catalogues ?? 0)}`}
         />
@@ -590,13 +527,19 @@ export default function FeaturesTab({
               How the AI assistant is used
             </h2>
             <p className="mt-1 text-[15px] text-ink-2">
-              Turns, credits and the people behind them in the selected period
+              Turns, credits and the people behind them in the selected
+              period. AI users are a share of the {number(ai.activeUsers)}{" "}
+              users active in it (views, a new catalogue or an AI turn).
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <KpiInline label="AI turns" value={number(ai.turns)} />
+            <KpiInline
+              label="AI users"
+              value={`${number(ai.users)} · ${pct(ai.userPct)}`}
+            />
             <KpiInline label="Credits spent" value={number(ai.creditsSpent)} />
-            <KpiInline label="Refunded turns" value={pct(ai.refundRate)} />
+            <KpiInline label="Failed (refunded)" value={pct(ai.refundRate)} />
           </div>
         </div>
 

@@ -1,36 +1,49 @@
 "use client"
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import {
-  Activity,
-  BookOpen,
-  BookPlus,
+  CreditCard,
   Eye,
-  Lightbulb,
+  Layers,
+  LayoutGrid,
+  Mail,
   Puzzle,
-  Sparkles,
+  Shield,
   TrendingUp,
   UserPlus,
   Wallet,
+  Zap,
 } from "lucide-react"
 
-import AuthGuard from "@/components/AuthGuard"
 import Backdrop from "@/components/Backdrop"
 import Sidebar from "@/components/Sidebar"
 import { cx } from "@/lib/utils/cx"
 
-import { computeView, resolveRange } from "./clientView"
+import {
+  addDays,
+  attentionOf,
+  computeView,
+  daysBetween,
+  lastAnalyticsDay,
+  previousRange,
+  resolveRange,
+  sourcesOf,
+  withoutInternal,
+} from "./clientView"
 import Hero, { type Pulse } from "./Hero"
-import type { DashboardData, DashboardView, RangeKey } from "./types"
-import { compactNumber, number } from "./ui"
+import type { DashboardData, DashboardView, RangeKey, Series } from "./types"
+import { compactNumber, money, number } from "./ui"
 import { useIndicator } from "./useIndicator"
 
-import InsightsTab from "./tabs/InsightsTab"
-import GrowthTab from "./tabs/GrowthTab"
-import EngagementTab from "./tabs/EngagementTab"
-import CataloguesTab from "./tabs/CataloguesTab"
+import OverviewTab from "./tabs/OverviewTab"
+import AcquisitionTab from "./tabs/AcquisitionTab"
+import ActivationTab from "./tabs/ActivationTab"
+import ContentTab from "./tabs/ContentTab"
+import TrafficTab from "./tabs/TrafficTab"
 import RevenueTab from "./tabs/RevenueTab"
+import CustomersTab from "./tabs/CustomersTab"
 import FeaturesTab from "./tabs/FeaturesTab"
+import OutreachTab from "./tabs/OutreachTab"
 
 const RANGES: RangeKey[] = ["1M", "3M", "6M", "12M", "ALL", "CUSTOM"]
 const RANGE_LABEL: Record<RangeKey, string> = {
@@ -42,49 +55,83 @@ const RANGE_LABEL: Record<RangeKey, string> = {
   CUSTOM: "Custom",
 }
 
-// Tabs group the charts by the question they answer, rather than by the table
-// they come from. `Insights` leads because it is the cohort view most often
-// asked for: who signed up, what they built, and what it earned.
+// One page per question, grouped in the sidebar. Overview leads: how the
+// period went and what needs a look.
 const TABS = [
   {
-    id: "insights",
-    label: "Insights",
-    icon: Lightbulb,
-    hint: "New users, their catalogues and the traffic they earned",
+    id: "overview",
+    group: null,
+    label: "Overview",
+    icon: LayoutGrid,
+    hint: "How the period went, and what needs attention",
   },
   {
-    id: "growth",
-    label: "Growth",
-    icon: TrendingUp,
-    hint: "Signups, catalogues and pageviews over time",
+    id: "acquisition",
+    group: "Users",
+    label: "Acquisition",
+    icon: UserPlus,
+    hint: "Who signed up, when and from where",
   },
   {
-    id: "engagement",
-    label: "Engagement",
-    icon: Activity,
-    hint: "Activation funnel and how alive the catalogues are",
+    id: "activation",
+    group: "Users",
+    label: "Activation",
+    icon: Zap,
+    hint: "Did signups build a real catalogue, and where do they stop",
   },
   {
-    id: "catalogues",
-    label: "Catalogues",
-    icon: BookOpen,
-    hint: "Composition, content depth and freshness",
+    id: "content",
+    group: "Catalogues",
+    label: "Content",
+    icon: Layers,
+    hint: "What the catalogues hold, and how many are empty",
+  },
+  {
+    id: "traffic",
+    group: "Catalogues",
+    label: "Traffic",
+    icon: Eye,
+    hint: "Views, and which catalogues are live or dead",
   },
   {
     id: "revenue",
+    group: "Money",
     label: "Revenue",
     icon: Wallet,
-    hint: "Subscriptions, plans and churn",
+    hint: "MRR, revenue, refunds and checkout from Paddle",
+  },
+  {
+    id: "customers",
+    group: "Money",
+    label: "Customers",
+    icon: CreditCard,
+    hint: "Who pays, who left and who is at risk",
   },
   {
     id: "features",
+    group: "Product",
     label: "Features",
     icon: Puzzle,
-    hint: "AI, content blocks, integrations and themes",
+    hint: "Feature adoption and how the AI assistant does",
+  },
+  {
+    id: "outreach",
+    group: "Act",
+    label: "Outreach lists",
+    icon: Mail,
+    hint: "People to email, with a CSV export",
   },
 ] as const
 
 type TabId = (typeof TABS)[number]["id"]
+
+// Links to the old tabs keep working.
+const ALIASES: Record<string, TabId> = {
+  insights: "overview",
+  growth: "acquisition",
+  engagement: "activation",
+  catalogues: "content",
+}
 
 const isTabId = (v: string): v is TabId => TABS.some((t) => t.id === v)
 
@@ -179,9 +226,11 @@ function RangeSelector({
 function TabBar({
   value,
   onChange,
+  badges,
 }: {
   value: TabId
   onChange: (v: TabId) => void
+  badges: Partial<Record<TabId, number>>
 }) {
   const { ref, box } = useIndicator(value)
 
@@ -216,34 +265,49 @@ function TabBar({
         vertical
         className="rounded-full border border-amber/55 bg-amber-soft shadow-[0_6px_16px_-8px_rgba(245,163,0,0.5)]"
       />
-      {TABS.map((t) => {
+      {TABS.map((t, i) => {
         const active = t.id === value
         const Icon = t.icon
+        const badge = badges[t.id]
         return (
-          <button
-            key={t.id}
-            data-key={t.id}
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={active}
-            aria-controls={`panel-${t.id}`}
-            tabIndex={active ? 0 : -1}
-            title={t.hint}
-            onClick={() => onChange(t.id)}
-            className={cx(
-              "relative flex h-11 w-full items-center gap-2.5 rounded-full px-3.5 text-[14.5px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-3px]",
-              active
-                ? "font-bold text-ink"
-                : "font-semibold text-ink-2 hover:bg-ink/[0.04] hover:text-ink",
+          <Fragment key={t.id}>
+            {t.group && t.group !== TABS[i - 1]?.group && (
+              <p
+                aria-hidden="true"
+                className="px-3.5 pt-3 pb-0.5 text-[11.5px] font-bold tracking-[0.08em] text-ink-3 uppercase"
+              >
+                {t.group}
+              </p>
             )}
-          >
-            <Icon
-              className={cx("size-4", active ? "text-amber-ink" : "text-ink-3")}
-              aria-hidden="true"
-            />
-            {t.label}
-          </button>
+            <button
+              data-key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={active}
+              aria-controls={`panel-${t.id}`}
+              tabIndex={active ? 0 : -1}
+              title={t.hint}
+              onClick={() => onChange(t.id)}
+              className={cx(
+                "relative flex h-11 w-full items-center gap-2.5 rounded-full px-3.5 text-[14.5px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-3px]",
+                active
+                  ? "font-bold text-ink"
+                  : "font-semibold text-ink-2 hover:bg-ink/[0.04] hover:text-ink",
+              )}
+            >
+              <Icon
+                className={cx("size-4", active ? "text-amber-ink" : "text-ink-3")}
+                aria-hidden="true"
+              />
+              {t.label}
+              {badge ? (
+                <span className="ml-auto rounded-full bg-amber-soft px-2 py-px text-[12px] font-bold text-amber-ink tabular-nums ring-1 ring-amber/40 ring-inset">
+                  {number(badge)}
+                </span>
+              ) : null}
+            </button>
+          </Fragment>
         )
       })}
     </div>
@@ -316,17 +380,53 @@ function DatePicker({
   )
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-// The period of the same length that ends the day before `start`.
-const previousRange = (start: string, end: string) => {
-  const s = Date.parse(`${start}T00:00:00Z`)
-  const e = Date.parse(`${end}T00:00:00Z`)
-  const prevEnd = s - DAY_MS
-  return {
-    start: isoDay(new Date(prevEnd - (e - s))),
-    end: isoDay(new Date(prevEnd)),
+// Internal and test accounts (INTERNAL_EMAILS) are left out unless switched
+// back in. With none listed there is nothing to switch.
+function InternalSwitch({
+  count,
+  on,
+  onChange,
+}: {
+  count: number
+  on: boolean
+  onChange: (on: boolean) => void
+}) {
+  if (count === 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 self-start text-[12.5px] text-ink-3 sm:self-auto"
+        title="List internal and test accounts in INTERNAL_EMAILS to leave them out of every figure."
+      >
+        <Shield className="size-3.5" aria-hidden="true" />
+        No internal accounts listed
+      </span>
+    )
   }
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className="inline-flex items-center gap-2 self-start rounded-full py-1 text-[13px] font-semibold text-ink-2 hover:text-ink sm:self-auto"
+    >
+      <span
+        aria-hidden="true"
+        className={cx(
+          "relative h-5 w-9 rounded-full transition-colors",
+          on ? "bg-amber" : "bg-line-strong",
+        )}
+      >
+        <span
+          className={cx(
+            "absolute top-0.5 size-4 rounded-full bg-card shadow-sm transition-[left]",
+            on ? "left-[18px]" : "left-0.5",
+          )}
+        />
+      </span>
+      Include {number(count)} internal {count === 1 ? "account" : "accounts"}
+    </button>
+  )
 }
 
 const COMPARE_LABEL: Record<RangeKey, string | null> = {
@@ -338,90 +438,166 @@ const COMPARE_LABEL: Record<RangeKey, string | null> = {
   CUSTOM: null, // filled in with the day count
 }
 
-// The four numbers the hero leads with, each with its trend series.
-const pulsesOf = (view: DashboardView, prev: DashboardView | null): Pulse[] => [
-  {
-    label: "New users",
-    icon: UserPlus,
-    value: view.totals.users,
-    previous: prev?.totals.users ?? null,
-    points: view.growth.users.monthly.map((p) => ({ date: p.date, value: p.Users })),
-    format: number,
-  },
-  {
-    label: "New catalogues",
-    icon: BookPlus,
-    value: view.totals.catalogues,
-    previous: prev?.totals.catalogues ?? null,
-    points: view.growth.catalogues.monthly.map((p) => ({
-      date: p.date,
-      value: p.Catalogues,
-    })),
-    format: number,
-  },
-  {
-    label: "Pageviews",
-    icon: Eye,
-    value: view.totals.pageviews,
-    previous: prev?.totals.pageviews ?? null,
-    points: view.pageviewsSeries.map((p) => ({ date: p.date, value: p.Pageviews })),
-    format: (n) => (n >= 10000 ? compactNumber(n) : number(n)),
-  },
-  {
-    label: "AI assistant turns",
-    icon: Sparkles,
-    value: view.features.ai.turns,
-    previous: prev?.features.ai.turns ?? null,
-    points: view.features.ai.overTime.map((p) => ({
-      date: p.date,
-      value: p["AI turns"],
-    })),
-    format: number,
-  },
-]
+const pointsOf = (series: Series, key: string) =>
+  series.flatMap((r) =>
+    typeof r[key] === "number" ? [{ date: String(r.date), value: r[key] as number }] : [],
+  )
 
-export default function Dashboard({ data }: { data: DashboardData }) {
+const shortDay = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  })
+
+// The four numbers Overview leads with, each with its trend.
+const pulsesOf = (
+  view: DashboardView,
+  prev: DashboardView | null,
+  compareLabel: string | null,
+): Pulse[] => {
+  const { revenue, customers } = view
+  return [
+    {
+      label: "New signups",
+      icon: UserPlus,
+      value: view.signups,
+      previous: prev?.signups ?? null,
+      points: pointsOf(view.signupSeries, "Signups"),
+      format: number,
+    },
+    {
+      label: "Activated users",
+      icon: Zap,
+      value: view.activation.activated,
+      previous: prev?.activation.activated ?? null,
+      points: pointsOf(view.signupSeries, "Activated"),
+      format: number,
+      note: "Signups in range who built a catalogue",
+    },
+    {
+      label: "Pageviews",
+      icon: Eye,
+      value: view.traffic.pageviews,
+      previous: prev?.traffic.pageviews ?? null,
+      points: pointsOf(view.traffic.series, "Pageviews"),
+      format: (n) => (n >= 10000 ? compactNumber(n) : number(n)),
+      note:
+        view.analyticsClamped && compareLabel
+          ? `${compareLabel}, both cut at ${shortDay(view.analyticsUntil)}`
+          : undefined,
+    },
+    revenue.mrrSource === "metrics"
+      ? {
+          label: "MRR",
+          icon: TrendingUp,
+          value: revenue.mrr,
+          previous: revenue.mrrStart,
+          points: pointsOf(revenue.mrrSeries ?? [], "MRR"),
+          format: (n) => money(n, revenue.currency),
+          note: "vs the start of the range",
+        }
+      : {
+          label: "Paying customers",
+          icon: CreditCard,
+          value: customers.paying,
+          previous: null,
+          points: [],
+          format: number,
+          note: revenue.connected
+            ? "Right now"
+            : "Right now · MRR shows here once Paddle is connected",
+        },
+  ]
+}
+
+export default function Dashboard({
+  data,
+  username,
+}: {
+  data: DashboardData
+  username: string
+}) {
   const [range, setRange] = useState<RangeKey>("12M")
   const [customStart, setCustomStart] = useState<string>(monthsAgo(6))
   const [customEnd, setCustomEnd] = useState<string>(today())
+  const [withInternal, setWithInternal] = useState(false)
 
   // The URL hash is the single source of truth for the active tab, so a
   // section can be linked to, survives a reload, and follows the back button.
   const hash = useSyncExternalStore(subscribeToHash, readHash, () => "")
-  const tab: TabId = isTabId(hash) ? hash : TABS[0].id
+  const tab: TabId = isTabId(hash) ? hash : (ALIASES[hash] ?? TABS[0].id)
   const selectTab = (next: TabId) => {
     // Assigning the hash (rather than replaceState) is what emits hashchange.
     window.location.hash = next
   }
 
+  const internalCount = useMemo(
+    () => data.users.filter((u) => u.internal).length,
+    [data],
+  )
+  const scoped = useMemo(
+    () => (withInternal ? data : withoutInternal(data)),
+    [data, withInternal],
+  )
+  const lastDay = useMemo(() => lastAnalyticsDay(scoped), [scoped])
+
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd, data),
     [range, customStart, customEnd, data],
   )
+  // Traffic stops at the newest analytics day, and the previous period is cut
+  // to the same number of days, so a late import can't fake a drop.
+  const until = lastDay && lastDay < end ? lastDay : end
 
-  const view = useMemo(() => computeView(data, start, end), [data, start, end])
+  const view = useMemo(
+    () => computeView(scoped, start, end, until),
+    [scoped, start, end, until],
+  )
 
   // "All" has nothing before it to compare against.
   const prevView = useMemo(() => {
     if (range === "ALL") return null
     const prev = previousRange(start, end)
-    return computeView(data, prev.start, prev.end)
-  }, [data, range, start, end])
+    return computeView(
+      scoped,
+      prev.start,
+      prev.end,
+      addDays(prev.start, daysBetween(start, until)),
+    )
+  }, [scoped, range, start, end, until])
 
-  const days = Math.round((Date.parse(end) - Date.parse(start)) / DAY_MS) + 1
+  const sources = useMemo(() => sourcesOf(data, lastDay), [data, lastDay])
+  const attention = useMemo(
+    () => attentionOf(scoped, view, lastDay),
+    [scoped, view, lastDay],
+  )
+
+  const days = daysBetween(start, end) + 1
   const compareLabel =
     range === "CUSTOM" ? `vs the previous ${days} days` : COMPARE_LABEL[range]
 
-  const animationKey =
-    range === "CUSTOM" ? `custom-${customStart}-${customEnd}` : range
+  const animationKey = `${range === "CUSTOM" ? `custom-${customStart}-${customEnd}` : range}-${withInternal}`
 
   const activeTab = TABS.find((t) => t.id === tab) ?? TABS[0]
+  const emptyOwners =
+    data.segments.find((s) => s.id === "empty-catalogue")?.count ?? 0
+  const props = { view, prev: prevView, animationKey }
 
   return (
-    <AuthGuard>
+    <>
       <Backdrop />
       <div className="min-h-screen pt-[9px] lg:flex lg:pt-0">
-        <Sidebar nav={<TabBar value={tab} onChange={selectTab} />} />
+        <Sidebar
+          username={username}
+          nav={
+            <TabBar
+              value={tab}
+              onChange={selectTab}
+              badges={{ outreach: emptyOwners }}
+            />
+          }
+        />
 
         <main className="min-w-0 flex-1 pb-20">
           <div className="mx-auto max-w-[1280px] space-y-10 px-5 pt-6 lg:px-8 lg:pt-3">
@@ -429,8 +605,10 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <Hero
               start={start}
               end={end}
-              pulses={pulsesOf(view, prevView)}
+              analyticsUntil={view.analyticsClamped ? view.analyticsUntil : null}
+              pulses={tab === "overview" ? pulsesOf(view, prevView, compareLabel) : null}
               compareLabel={compareLabel}
+              sources={sources}
               controls={
                 <>
                   <RangeSelector value={range} onChange={setRange} />
@@ -444,37 +622,41 @@ export default function Dashboard({ data }: { data: DashboardData }) {
                       }}
                     />
                   )}
+                  <InternalSwitch
+                    count={internalCount}
+                    on={withInternal}
+                    onChange={setWithInternal}
+                  />
                 </>
               }
             />
-  
+
             <div
               role="tabpanel"
               id={`panel-${activeTab.id}`}
               aria-labelledby={`tab-${activeTab.id}`}
             >
-              {tab === "insights" && (
-                <InsightsTab view={view} animationKey={animationKey} />
-              )}
-              {tab === "growth" && (
-                <GrowthTab view={view} animationKey={animationKey} />
-              )}
-              {tab === "engagement" && (
-                <EngagementTab view={view} animationKey={animationKey} />
-              )}
-              {tab === "catalogues" && (
-                <CataloguesTab view={view} animationKey={animationKey} />
-              )}
-              {tab === "revenue" && (
-                <RevenueTab view={view} animationKey={animationKey} />
-              )}
+              {tab === "overview" && <OverviewTab {...props} attention={attention} />}
+              {tab === "acquisition" && <AcquisitionTab {...props} />}
+              {tab === "activation" && <ActivationTab {...props} />}
+              {tab === "content" && <ContentTab {...props} />}
+              {tab === "traffic" && <TrafficTab {...props} />}
+              {tab === "revenue" && <RevenueTab {...props} />}
+              {tab === "customers" && <CustomersTab {...props} />}
               {tab === "features" && (
                 <FeaturesTab view={view} animationKey={animationKey} />
+              )}
+              {tab === "outreach" && (
+                <OutreachTab
+                  segments={data.segments}
+                  paddleConnected={data.paddle != null}
+                  animationKey={animationKey}
+                />
               )}
             </div>
           </div>
         </main>
       </div>
-    </AuthGuard>
+    </>
   )
 }

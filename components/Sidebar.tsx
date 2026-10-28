@@ -2,10 +2,9 @@
 
 import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import { LogOut, Menu, X } from "lucide-react"
 
-import { clearAuth, getStoredUsername } from "@/lib/auth"
+import { signOut } from "@/app/login/actions"
 import { cx } from "@/lib/utils/cx"
 
 const GLASS_SHADOW =
@@ -15,17 +14,17 @@ const GLASS_SHADOW =
 // pinned to the left from `lg`. Below that it is a drawer, opened from a pill
 // bar at the top of the page. There is only ever one copy of `nav`, so its ids
 // stay unique.
-const Sidebar = ({ nav }: { nav?: React.ReactNode }) => {
-  const router = useRouter()
-  const [username, setUsername] = useState<string | null>(null)
+const Sidebar = ({
+  nav,
+  username,
+}: {
+  nav?: React.ReactNode
+  username: string
+}) => {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    setUsername(getStoredUsername())
-  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -58,11 +57,6 @@ const Sidebar = ({ nav }: { nav?: React.ReactNode }) => {
       toFocus?.focus({ preventScroll: true })
     }
   }, [open])
-
-  const handleSignOut = () => {
-    clearAuth()
-    router.replace("/login")
-  }
 
   return (
     <>
@@ -175,14 +169,15 @@ const Sidebar = ({ nav }: { nav?: React.ReactNode }) => {
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-full border-[1.5px] border-amber bg-card/70 px-[18px] text-[14.5px] font-semibold text-ink transition duration-200 hover:-translate-y-0.5 hover:bg-amber-soft active:scale-[0.98]"
-              >
-                <LogOut className="size-4" aria-hidden="true" />
-                Sign out
-              </button>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-full border-[1.5px] border-amber bg-card/70 px-[18px] text-[14.5px] font-semibold text-ink transition duration-200 hover:-translate-y-0.5 hover:bg-amber-soft active:scale-[0.98]"
+                >
+                  <LogOut className="size-4" aria-hidden="true" />
+                  Sign out
+                </button>
+              </form>
             </div>
           )}
         </div>

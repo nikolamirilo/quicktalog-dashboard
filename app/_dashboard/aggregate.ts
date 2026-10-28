@@ -1,16 +1,5 @@
 import { FEATURES, type FeatureKey } from "./features"
-import type {
-  AiCreditRow,
-  AnalyticsRow,
-  CatalogueRow,
-  CatalogueSubscriberRow,
-  DashboardData,
-  PlanRow,
-  QrConfigRow,
-  SubscriptionRow,
-  UserRow,
-  UserThemeRow,
-} from "./types"
+import type { CatalogueRow, DashboardData } from "./types"
 
 // Raw catalogue row as it comes back from Postgres, before the heavy JSONB
 // columns are reduced to compact scalars for the client.
@@ -184,18 +173,9 @@ const shapeCatalogue = (
   }
 }
 
-export function aggregate(raw: {
-  users: UserRow[]
-  catalogues: RawCatalogue[]
-  analytics: AnalyticsRow[]
-  plans: PlanRow[]
-  subscriptions: SubscriptionRow[]
-  aiCredits: AiCreditRow[]
-  qrConfigs: QrConfigRow[]
-  catalogueSubscribers: CatalogueSubscriberRow[]
-  userThemes: UserThemeRow[]
-  newsletterSubscriberCount: number
-}): DashboardData {
+export function aggregate(
+  raw: Omit<DashboardData, "catalogues"> & { catalogues: RawCatalogue[] },
+): DashboardData {
   const related = {
     ai: new Set(
       raw.aiCredits.flatMap((a) => (a.catalogue_id ? [a.catalogue_id] : [])),

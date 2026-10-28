@@ -2,20 +2,24 @@
 
 import { useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import { ArrowDownRight, ArrowUpRight, Minus, Sparkles } from "lucide-react"
+import { AlertTriangle, Sparkles } from "lucide-react"
 
 import AnimatedNumber from "@/components/AnimatedNumber"
 import { cx } from "@/lib/utils/cx"
 
 import Sparkline, { type SparkPoint } from "./Sparkline"
+import type { SourceStatus } from "./types"
+import { Delta } from "./ui"
 
 export type Pulse = {
   label: string
   icon: LucideIcon
   value: number
-  previous: number | null // null when there is no earlier period to compare
+  previous: number | null // null when there is no earlier figure to compare
   points: { date: string; value: number }[]
   format: (n: number) => string
+  // Replaces the comparison line, e.g. "Right now" for a snapshot.
+  note?: string
 }
 
 const dayFmt = new Intl.DateTimeFormat("en-GB", {
@@ -25,54 +29,6 @@ const dayFmt = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 })
 const formatDay = (iso: string) => dayFmt.format(new Date(`${iso}T00:00:00Z`))
-
-// Change against the previous period of the same length. Direction always
-// comes with a sign and an arrow, never colour alone.
-function Delta({
-  value,
-  previous,
-}: {
-  value: number
-  previous: number | null
-}) {
-  if (previous == null) return null
-  const base = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12.5px] font-bold text-ink tabular-nums"
-  if (previous === 0) {
-    return value > 0 ? (
-      <span className={cx(base, "bg-success/15")}>
-        <ArrowUpRight className="size-3.5 text-success" aria-hidden="true" />
-        New
-      </span>
-    ) : (
-      <span className={cx(base, "bg-bg-alt")}>
-        <Minus className="size-3.5 text-ink-3" aria-hidden="true" />
-        0%
-      </span>
-    )
-  }
-  const change = ((value - previous) / previous) * 100
-  const rounded = Math.round(change * 10) / 10
-  if (rounded === 0) {
-    return (
-      <span className={cx(base, "bg-bg-alt")}>
-        <Minus className="size-3.5 text-ink-3" aria-hidden="true" />
-        0%
-      </span>
-    )
-  }
-  const up = rounded > 0
-  const Icon = up ? ArrowUpRight : ArrowDownRight
-  return (
-    <span className={cx(base, up ? "bg-success/15" : "bg-red/18")}>
-      <Icon
-        className={cx("size-3.5", up ? "text-success" : "text-red")}
-        aria-hidden="true"
-      />
-      {up ? "+" : "−"}
-      {Math.abs(rounded) > 999 ? "999+" : Math.abs(rounded)}%
-    </span>
-  )
-}
 
 function PulseTile({
   pulse,
@@ -105,31 +61,63 @@ function PulseTile({
         label={pulse.label}
         onActive={setActive}
       />
-      <p className="text-[12.5px] text-ink-3" aria-live="polite">
+      <p className="mt-auto text-[12.5px] text-ink-3" aria-live="polite">
         {active ? (
           <>
             <b className="font-semibold text-ink">{pulse.format(active.value)}</b>{" "}
             in {active.date}
           </>
         ) : (
-          (compareLabel ?? "All time, no earlier period to compare")
+          (pulse.note ?? compareLabel ?? "All time, no earlier period to compare")
         )}
       </p>
     </div>
   )
 }
 
+// Where the figures come from and how fresh each source is. A stale source
+// turns amber with a warning icon, never colour alone.
+function SourceChip({ source }: { source: SourceStatus }) {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[13px] font-semibold whitespace-nowrap",
+        source.state === "warn"
+          ? "border-amber/40 bg-amber-soft text-amber-ink"
+          : "border-line bg-bg-alt text-ink-2",
+      )}
+    >
+      {source.state === "warn" ? (
+        <AlertTriangle className="size-3.5" aria-hidden="true" />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cx(
+            "size-2 rounded-full",
+            source.state === "good" ? "bg-success" : "bg-ink-3/50",
+          )}
+        />
+      )}
+      {source.label}: {source.detail}
+    </span>
+  )
+}
+
 export default function Hero({
   start,
   end,
+  analyticsUntil,
   pulses,
   compareLabel,
+  sources,
   controls,
 }: {
   start: string
   end: string
-  pulses: Pulse[]
+  analyticsUntil: string | null // set when traffic stops before `end`
+  pulses: Pulse[] | null // the headline tiles, on Overview only
   compareLabel: string | null
+  sources: SourceStatus[]
   controls: React.ReactNode
 }) {
   return (
@@ -141,23 +129,28 @@ export default function Hero({
               <Sparkles className="size-3.5" aria-hidden="true" />
               Admin analytics
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-bg-alt px-3 py-1 text-[13px] font-semibold text-ink-2">
-              <span className="relative flex size-2" aria-hidden="true">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-success" />
-              </span>
-              Live data
-            </span>
+            {sources.map((s) => (
+              <SourceChip key={s.label} source={s} />
+            ))}
           </div>
           <h1 className="mt-4 text-[clamp(34px,5.2vw,56px)] leading-[1.06] font-extrabold tracking-[-0.035em] text-ink">
             Analytics
           </h1>
           <p className="mt-3 text-[17px] leading-relaxed text-ink-2">
-            Every metric reflects{" "}
+            Figures cover{" "}
             <b className="font-semibold text-ink">
               {formatDay(start)} → {formatDay(end)}
             </b>
-            , read live from the database.
+            .
+            {analyticsUntil && (
+              <>
+                {" "}
+                Traffic stops at{" "}
+                <b className="font-semibold text-ink">{formatDay(analyticsUntil)}</b>
+                , the newest day with data, and is compared over the same number
+                of days.
+              </>
+            )}
           </p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
@@ -165,11 +158,13 @@ export default function Hero({
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {pulses.map((p) => (
-          <PulseTile key={p.label} pulse={p} compareLabel={compareLabel} />
-        ))}
-      </div>
+      {pulses && (
+        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {pulses.map((p) => (
+            <PulseTile key={p.label} pulse={p} compareLabel={compareLabel} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
