@@ -16,17 +16,24 @@ import { internalLists, NOT_INTERNAL_SQL } from "./internal"
 // so both always use the same definition. Internal accounts are never listed.
 
 // Each catalogue with its section and item counts, as the dashboard counts
-// them (items are the entries of an items section).
+// them (items are the entries of an items section). The builder autosaves to
+// `catalogue_drafts` and `catalogues.content` only changes on Publish, so
+// `sections`/`items` count the owner's latest work (the draft when there is
+// one) and `published_sections` counts what visitors see.
 const SIZED = `sized as (
   select c.id, c.user_id, c.name, c.status, c.created_at, c.business_type, c.language,
-         case when jsonb_typeof(c.content) = 'array'
-              then jsonb_array_length(c.content) else 0 end as sections,
+         case when jsonb_typeof(w.content) = 'array'
+              then jsonb_array_length(w.content) else 0 end as sections,
          (select coalesce(sum(jsonb_array_length(s->'items')), 0)
             from jsonb_array_elements(
-                   case when jsonb_typeof(c.content) = 'array'
-                        then c.content else '[]'::jsonb end) s
-           where jsonb_typeof(s->'items') = 'array') as items
+                   case when jsonb_typeof(w.content) = 'array'
+                        then w.content else '[]'::jsonb end) s
+           where jsonb_typeof(s->'items') = 'array') as items,
+         case when jsonb_typeof(c.content) = 'array'
+              then jsonb_array_length(c.content) else 0 end as published_sections
     from public.catalogues c
+    left join public.catalogue_drafts d on d.catalogue_id = c.id
+    cross join lateral (select coalesce(d.draft->'content', c.content) as content) w
 )`
 
 // Per owner: how many catalogues, how many built, how many published.
@@ -35,7 +42,7 @@ cats as (
   select user_id,
          count(*) as catalogues,
          count(*) filter (where sections > 0) as built,
-         count(*) filter (where sections > 0 and status = 'active') as published,
+         count(*) filter (where published_sections > 0 and status = 'active') as published,
          string_agg(name, '; ' order by created_at) as catalogue,
          min(created_at) as first_catalogue_at,
          max(business_type) as business_type,
@@ -112,7 +119,7 @@ export const DB_SEGMENTS: DbSegment[] = [
         from sized c
         join public.users u on u.id = c.user_id
         left join public.plans p on p.id = u.plan_id
-       where c.status = 'active' and c.sections = 0
+       where c.status = 'active' and c.published_sections = 0
          and u.email is not null and ${NOT_INTERNAL_SQL}
        group by u.id, u.email, u.name
        order by max(c.created_at) desc`,

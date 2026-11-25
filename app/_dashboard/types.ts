@@ -27,7 +27,11 @@ export type UserRow = {
   created_at: string | null
   plan_id: string | null
   customer_id: string | null
+  // The derived channel (google, linkedin, direct, …) from the tracked first
+  // touch; before November 2026 it held the signup question's answer.
   acquisition_source: string | null
+  self_reported_source: string | null // "How did you hear about us?"
+  utm_campaign: string | null
   internal: boolean // listed in INTERNAL_EMAILS
 }
 
@@ -46,7 +50,12 @@ export type CatalogueRow = {
   user_id: string
   created_at: string
   updated_at: string | null
+  // Counted from the owner's latest work: the autosaved draft when there is
+  // one, otherwise the published content.
   contentSections: number
+  publishedSections: number // blocks visitors see (catalogues.content)
+  hasDraft: boolean
+  unpublishedChanges: boolean // the draft is newer than the last Publish
   // Content blocks per stored type key, old keys included ("custom_code", ...).
   sectionTypes: Record<string, number>
   contentItems: number
@@ -293,8 +302,10 @@ export type DashboardView = {
   acquisition: {
     weeklyAvg: number
     startedPct: number
-    sources: Bucket[]
-    sourceRecorded: number // users with a source, all time
+    sources: Bucket[] // tracked channel
+    selfReported: Bucket[]
+    campaigns: Bucket[]
+    sourceRecorded: number // users with a channel, all time
     totalUsers: number
     byBusinessType: Bucket[]
     byLanguage: Bucket[]
@@ -325,7 +336,8 @@ export type DashboardView = {
     completeness: Bucket[] // % of built catalogues with each part
     monthly: Series // Built, Empty
     starterFull: number // Starter catalogues at the section or item cap
-    publishedEmpty: number
+    publishedEmpty: number // live, with no published content
+    unpublishedChanges: number // live, with a draft newer than the last Publish
   }
   traffic: {
     pageviews: number

@@ -113,10 +113,10 @@ export default function AcquisitionTab({ view, prev, animationKey }: TabProps) {
           scope="Signups in range"
         />
         <KpiCard
-          label="Source recorded"
+          label="Channel known"
           icon={Tag}
           value={number(acq.sourceRecorded)}
-          hint={`of ${number(acq.totalUsers)} users; the question is new`}
+          hint={`of ${number(acq.totalUsers)} users; tracked since Nov 2026`}
           scope="All time"
         />
       </section>
@@ -157,12 +157,12 @@ export default function AcquisitionTab({ view, prev, animationKey }: TabProps) {
       </section>
 
       <section
-        key={`${animationKey}-acq-mix`}
+        key={`${animationKey}-acq-channels`}
         className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-3"
       >
         <ChartCard
           title="Where signups come from"
-          subtitle="From the signup question"
+          subtitle="Tracked first touch: UTM tags, else the referrer"
           scope="Signups in range"
         >
           {acq.sources.length === 0 ? (
@@ -182,11 +182,59 @@ export default function AcquisitionTab({ view, prev, animationKey }: TabProps) {
           )}
           <div className="pt-3">
             <Note>
-              Users who signed up before the question existed show as “Not
-              recorded”, so read this for recent periods.
+              Tracking started in November 2026; older signups show as “Not
+              tracked” unless backfilled from PostHog.
             </Note>
           </div>
         </ChartCard>
+        <ChartCard
+          title="Campaigns"
+          subtitle="utm_campaign on the landing link"
+          scope="Signups in range"
+        >
+          {acq.campaigns.length === 0 ? (
+            <Empty label="No tagged campaigns in this period." />
+          ) : (
+            <BarChart
+              data={acq.campaigns}
+              index="name"
+              categories={["value"]}
+              colors={["amber"]}
+              layout="vertical"
+              showLegend={false}
+              valueFormatter={number}
+              yAxisWidth={120}
+              className="h-full min-h-48 flex-1"
+            />
+          )}
+        </ChartCard>
+        <ChartCard
+          title="What they told us"
+          subtitle="“How did you hear about us?”, top answers"
+          scope="Signups in range"
+        >
+          {acq.selfReported.length === 0 ? (
+            <Empty label="No answers in this period." />
+          ) : (
+            <BarChart
+              data={acq.selfReported}
+              index="name"
+              categories={["value"]}
+              colors={["amber"]}
+              layout="vertical"
+              showLegend={false}
+              valueFormatter={number}
+              yAxisWidth={120}
+              className="h-full min-h-48 flex-1"
+            />
+          )}
+        </ChartCard>
+      </section>
+
+      <section
+        key={`${animationKey}-acq-mix`}
+        className="animate-chart-in grid grid-cols-1 gap-6 lg:grid-cols-2"
+      >
         <ChartCard
           title="Business type"
           subtitle="Of catalogues started in range, empty ones included"

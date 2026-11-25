@@ -185,6 +185,14 @@ export default function ContentTab({ view, animationKey }: TabProps) {
                 their visitors see a blank page.
               </p>
             )}
+            {c.unpublishedChanges > 0 && (
+              <p className="mt-3 text-[13px] text-ink-3">
+                {number(c.unpublishedChanges)} published{" "}
+                {c.unpublishedChanges === 1 ? "catalogue has" : "catalogues have"}{" "}
+                autosaved changes that are not published yet. Counts here include
+                those drafts.
+              </p>
+            )}
           </ChartCard>
         </div>
         <div className="lg:col-span-2">

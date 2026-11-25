@@ -137,10 +137,13 @@ const shortDay = (iso: string) =>
     timeZone: "UTC",
   })
 
+// Built counts the owner's latest work, autosaved draft included; published
+// counts what visitors see, which only changes on Publish.
 export const isBuilt = (c: CatalogueRow) => c.contentSections > 0
 const isLiveStatus = (c: CatalogueRow) =>
   (c.status ?? "").toLowerCase() === "active"
-export const isPublished = (c: CatalogueRow) => isLiveStatus(c) && isBuilt(c)
+export const isPublished = (c: CatalogueRow) =>
+  isLiveStatus(c) && c.publishedSections > 0
 
 // The newest day the analytics import has written.
 export function lastAnalyticsDay(data: DashboardData): string | null {
@@ -414,8 +417,20 @@ export function computeView(
     startedPct: pctOf(startedCohort, usersInRange.length),
     sources: bucketise(
       usersInRange.map((u) => ({ key: u.acquisition_source })),
-      (s) => (s === "-" ? "Not recorded" : titleCase(s)),
+      (s) => (s === "-" ? "Not tracked" : titleCase(s)),
     ),
+    // Free text from the signup modal: grouped as typed, case aside.
+    selfReported: bucketise(
+      usersInRange
+        .filter((u) => u.self_reported_source)
+        .map((u) => ({ key: u.self_reported_source?.trim().toLowerCase() })),
+      titleCase,
+    ).slice(0, 8),
+    campaigns: bucketise(
+      usersInRange
+        .filter((u) => u.utm_campaign)
+        .map((u) => ({ key: u.utm_campaign?.trim().toLowerCase() })),
+    ).slice(0, 8),
     sourceRecorded: data.users.filter((u) => u.acquisition_source).length,
     totalUsers: data.users.length,
     byBusinessType: bucketise(
@@ -569,7 +584,12 @@ export function computeView(
       ),
     }),
     starterFull,
-    publishedEmpty: data.catalogues.filter((c) => isLiveStatus(c) && !isBuilt(c)).length,
+    publishedEmpty: data.catalogues.filter(
+      (c) => isLiveStatus(c) && c.publishedSections === 0,
+    ).length,
+    unpublishedChanges: data.catalogues.filter(
+      (c) => isLiveStatus(c) && c.unpublishedChanges,
+    ).length,
   }
 
   // ── Traffic: views in range, up to the last day with data ────────────────

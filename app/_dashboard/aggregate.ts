@@ -12,7 +12,10 @@ export type RawCatalogue = {
   user_id: string
   created_at: string
   updated_at: string | null
-  content: unknown
+  content: unknown // the draft's content when there is a draft
+  published_sections: number
+  has_draft: boolean
+  unpublished_changes: boolean
   logo: string | null
   contact: unknown
   legal: unknown
@@ -153,6 +156,9 @@ const shapeCatalogue = (
     created_at: c.created_at,
     updated_at: c.updated_at,
     contentSections: sections,
+    publishedSections: c.published_sections,
+    hasDraft: c.has_draft,
+    unpublishedChanges: c.unpublished_changes,
     sectionTypes: types,
     contentItems: items,
     hasLogo: hasLogo(c.logo),

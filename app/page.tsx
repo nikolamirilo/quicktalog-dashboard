@@ -29,6 +29,8 @@ type RawUser = {
   plan_id: string | null
   customer_id: string | null
   acquisition_source: string | null
+  self_reported_source: string | null
+  utm_campaign: string | null
 }
 
 export default async function Page() {
@@ -55,14 +57,28 @@ export default async function Page() {
     lastImport,
   ] = await Promise.all([
     query<RawUser>(
-      `select id, email, name, created_at, plan_id, customer_id, acquisition_source
+      `select id, email, name, created_at, plan_id, customer_id, acquisition_source,
+              self_reported_source, utm_campaign
          from public.users`,
     ),
+    // Since November 2026 the builder autosaves to `catalogue_drafts`, and
+    // `catalogues.content` only changes on Publish. `content` is therefore the
+    // owner's latest work (the draft when there is one), and
+    // `published_sections` is what visitors see.
     query<RawCatalogue>(
-      `select id, name, status, language, business_type, user_id,
-              created_at, updated_at, content, logo, contact, legal, metadata,
-              appearance, header, footer, partners, tags
-         from public.catalogues`,
+      `select c.id, c.name, c.status, c.language, c.business_type, c.user_id,
+              c.created_at, c.updated_at,
+              coalesce(d.draft->'content', c.content) as content,
+              case when jsonb_typeof(c.content) = 'array'
+                   then jsonb_array_length(c.content) else 0 end as published_sections,
+              d.catalogue_id is not null as has_draft,
+              d.catalogue_id is not null
+                and (d.published_at is null or d.updated_at > d.published_at)
+                as unpublished_changes,
+              c.logo, c.contact, c.legal, c.metadata,
+              c.appearance, c.header, c.footer, c.partners, c.tags
+         from public.catalogues c
+         left join public.catalogue_drafts d on d.catalogue_id = c.id`,
     ),
     query<AnalyticsRow>(
       "select day, pageviews, unique_visitors, user_id, catalogue_id from public.analytics",
@@ -124,6 +140,8 @@ export default async function Page() {
       plan_id: u.plan_id,
       customer_id: u.customer_id,
       acquisition_source: u.acquisition_source,
+      self_reported_source: u.self_reported_source,
+      utm_campaign: u.utm_campaign,
       internal: isInternal(u.email),
     }
   })
