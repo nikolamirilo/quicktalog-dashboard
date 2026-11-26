@@ -12,6 +12,7 @@ import {
   TrendingUp,
   UserPlus,
   Wallet,
+  X,
   Zap,
 } from "lucide-react"
 
@@ -19,6 +20,7 @@ import Backdrop from "@/components/Backdrop"
 import Sidebar from "@/components/Sidebar"
 import { cx } from "@/lib/utils/cx"
 
+import { ALL_SOURCES, type SourceKey } from "./channels"
 import {
   addDays,
   attentionOf,
@@ -27,8 +29,11 @@ import {
   lastAnalyticsDay,
   previousRange,
   resolveRange,
+  sourceOptions,
   sourcesOf,
+  withSource,
   withoutInternal,
+  type SourceOption,
 } from "./clientView"
 import Hero, { type Pulse } from "./Hero"
 import type { DashboardData, DashboardView, RangeKey, Series } from "./types"
@@ -429,6 +434,75 @@ function InternalSwitch({
   )
 }
 
+// Narrows every figure to the people who signed up from one source, and
+// what is theirs: catalogues, views, subscriptions. Counts are all-time
+// signups, so a choice with few people is visible before it is picked.
+function SourceFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: SourceKey
+  options: ReturnType<typeof sourceOptions>
+  onChange: (key: SourceKey) => void
+}) {
+  const option = (o: SourceOption) => (
+    <option key={o.key} value={o.key}>
+      {o.label} ({number(o.count)})
+    </option>
+  )
+  const groups = [
+    { label: "Channel", rows: options.channels },
+    { label: "UTM medium", rows: options.mediums },
+    { label: "UTM campaign", rows: options.campaigns },
+  ].filter((g) => g.rows.length > 0)
+  const all = [
+    ...options.general,
+    ...options.channels,
+    ...options.mediums,
+    ...options.campaigns,
+  ]
+  // A choice that no longer has anyone (internal accounts switched off)
+  // stays listed while it is selected.
+  const missing = value !== ALL_SOURCES && !all.some((o) => o.key === value)
+  const active = value !== ALL_SOURCES
+  return (
+    <div className="flex items-center gap-2 self-start sm:self-auto">
+      <label className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
+        Source
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={cx(
+            "h-10 w-full max-w-[16rem] min-w-0 truncate rounded-md border-[1.5px] bg-card px-3 text-[15px] text-ink transition-[border-color,box-shadow] hover:border-line-hover focus-visible:border-amber focus-visible:ring-4 focus-visible:ring-amber/25 focus-visible:outline-none sm:w-auto",
+            active ? "border-amber" : "border-line-strong",
+          )}
+        >
+          <option value={ALL_SOURCES}>All signups</option>
+          {options.general.filter((o) => o.count > 0 || o.key === value).map(option)}
+          {missing && <option value={value}>{value.replace(/^\w+:/, "")} (0)</option>}
+          {groups.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.rows.map(option)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      {active && (
+        <button
+          type="button"
+          onClick={() => onChange(ALL_SOURCES)}
+          className="grid size-8 place-items-center rounded-full text-ink-2 hover:bg-ink/[0.06] hover:text-ink"
+          aria-label="Clear the source filter"
+          title="Clear the source filter"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 const COMPARE_LABEL: Record<RangeKey, string | null> = {
   "1M": "vs the previous month",
   "3M": "vs the previous 3 months",
@@ -522,6 +596,7 @@ export default function Dashboard({
   const [customStart, setCustomStart] = useState<string>(monthsAgo(6))
   const [customEnd, setCustomEnd] = useState<string>(today())
   const [withInternal, setWithInternal] = useState(false)
+  const [source, setSource] = useState<SourceKey>(ALL_SOURCES)
 
   // The URL hash is the single source of truth for the active tab, so a
   // section can be linked to, survives a reload, and follows the back button.
@@ -536,11 +611,17 @@ export default function Dashboard({
     () => data.users.filter((u) => u.internal).length,
     [data],
   )
-  const scoped = useMemo(
+  // Everyone but internal accounts; then only the chosen source's signups.
+  const base = useMemo(
     () => (withInternal ? data : withoutInternal(data)),
     [data, withInternal],
   )
-  const lastDay = useMemo(() => lastAnalyticsDay(scoped), [scoped])
+  const lastDay = useMemo(() => lastAnalyticsDay(base), [base])
+  const scoped = useMemo(
+    () => withSource(base, source, lastDay),
+    [base, source, lastDay],
+  )
+  const options = useMemo(() => sourceOptions(base), [base])
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd, data),
@@ -568,16 +649,21 @@ export default function Dashboard({
   }, [scoped, range, start, end, until])
 
   const sources = useMemo(() => sourcesOf(data, lastDay), [data, lastDay])
+  // What needs a look is about the whole product, whatever the filter.
+  const baseView = useMemo(
+    () => (scoped === base ? view : computeView(base, start, end, until)),
+    [scoped, base, view, start, end, until],
+  )
   const attention = useMemo(
-    () => attentionOf(scoped, view, lastDay),
-    [scoped, view, lastDay],
+    () => attentionOf(base, baseView, lastDay),
+    [base, baseView, lastDay],
   )
 
   const days = daysBetween(start, end) + 1
   const compareLabel =
     range === "CUSTOM" ? `vs the previous ${days} days` : COMPARE_LABEL[range]
 
-  const animationKey = `${range === "CUSTOM" ? `custom-${customStart}-${customEnd}` : range}-${withInternal}`
+  const animationKey = `${range === "CUSTOM" ? `custom-${customStart}-${customEnd}` : range}-${withInternal}-${source}`
 
   const activeTab = TABS.find((t) => t.id === tab) ?? TABS[0]
   const emptyOwners =
@@ -608,6 +694,7 @@ export default function Dashboard({
               analyticsUntil={view.analyticsClamped ? view.analyticsUntil : null}
               pulses={tab === "overview" ? pulsesOf(view, prevView, compareLabel) : null}
               compareLabel={compareLabel}
+              sourceLabel={view.sourceLabel}
               sources={sources}
               controls={
                 <>
@@ -622,6 +709,7 @@ export default function Dashboard({
                       }}
                     />
                   )}
+                  <SourceFilter value={source} options={options} onChange={setSource} />
                   <InternalSwitch
                     count={internalCount}
                     on={withInternal}
@@ -637,7 +725,14 @@ export default function Dashboard({
               aria-labelledby={`tab-${activeTab.id}`}
             >
               {tab === "overview" && <OverviewTab {...props} attention={attention} />}
-              {tab === "acquisition" && <AcquisitionTab {...props} />}
+              {tab === "acquisition" && (
+                <AcquisitionTab
+                  {...props}
+                  trackingSince={data.trackingSince}
+                  source={source}
+                  onSource={setSource}
+                />
+              )}
               {tab === "activation" && <ActivationTab {...props} />}
               {tab === "content" && <ContentTab {...props} />}
               {tab === "traffic" && <TrafficTab {...props} />}
@@ -651,6 +746,7 @@ export default function Dashboard({
                   segments={data.segments}
                   paddleConnected={data.paddle != null}
                   animationKey={animationKey}
+                  filtered={view.sourceLabel != null}
                 />
               )}
             </div>

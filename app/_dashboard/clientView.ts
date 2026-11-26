@@ -1,3 +1,12 @@
+import {
+  NOT_TRACKED,
+  SKIPPED,
+  answerLabel,
+  channelLabel,
+  parseSourceKey,
+  sourceKey,
+  type SourceKey,
+} from "./channels"
 import { FEATURES, SECTION_TYPES, type FeatureKey } from "./features"
 import {
   LIST_PRICE,
@@ -8,7 +17,9 @@ import {
 import type {
   Attention,
   Bucket,
+  CampaignRow,
   CatalogueRow,
+  ChannelRow,
   CohortRow,
   DashboardData,
   DashboardView,
@@ -96,6 +107,16 @@ const bucketise = (
     .sort((a, b) => b.value - a.value)
 }
 
+// The first `n - 1` buckets, and the rest summed as "Other" when there are
+// more than `n`.
+const foldTail = (rows: Bucket[], n: number): Bucket[] =>
+  rows.length <= n
+    ? rows
+    : [
+        ...rows.slice(0, n - 1),
+        { name: "Other", value: rows.slice(n - 1).reduce((t, r) => t + r.value, 0) },
+      ]
+
 const enumerateDays = (start: Date, end: Date): string[] => {
   const out: string[] = []
   const cur = new Date(
@@ -149,35 +170,171 @@ export function lastAnalyticsDay(data: DashboardData): string | null {
   return last
 }
 
-// Everything that belongs to an internal or test account, left out.
-// Paddle's own metrics (MRR, revenue) are account-wide and stay as they are.
-export function withoutInternal(data: DashboardData): DashboardData {
-  const internal = new Set(data.users.filter((u) => u.internal).map((u) => u.id))
-  if (internal.size === 0) return data
-  const customers = new Set(
-    data.users.flatMap((u) => (u.internal && u.customer_id ? [u.customer_id] : [])),
-  )
+// The data of the users `keep` accepts: their catalogues, views, AI turns,
+// subscriptions and the rest. `orphanSubs` keeps subscriptions whose customer
+// is no user's. Paddle's own metrics (MRR, revenue) stay as they are.
+function keepUsers(
+  data: DashboardData,
+  keep: (u: UserRow) => boolean,
+  orphanSubs: boolean,
+): DashboardData {
+  const dropped = new Set(data.users.filter((u) => !keep(u)).map((u) => u.id))
+  if (dropped.size === 0) return data
+  const customersOf = (kept: boolean) =>
+    new Set(
+      data.users.flatMap((u) =>
+        keep(u) === kept && u.customer_id ? [u.customer_id] : [],
+      ),
+    )
+  const keptCustomers = customersOf(true)
+  const droppedCustomers = customersOf(false)
+  const keepCustomer = orphanSubs
+    ? (id: string) => !droppedCustomers.has(id)
+    : (id: string) => keptCustomers.has(id)
   const catalogues = new Set(
-    data.catalogues.filter((c) => internal.has(c.user_id)).map((c) => c.id),
+    data.catalogues.filter((c) => dropped.has(c.user_id)).map((c) => c.id),
   )
   return {
     ...data,
-    users: data.users.filter((u) => !u.internal),
-    catalogues: data.catalogues.filter((c) => !internal.has(c.user_id)),
-    analytics: data.analytics.filter((a) => !internal.has(a.user_id)),
-    subscriptions: data.subscriptions.filter((s) => !customers.has(s.customer_id)),
-    aiCredits: data.aiCredits.filter((a) => !internal.has(a.user_id)),
+    users: data.users.filter((u) => !dropped.has(u.id)),
+    catalogues: data.catalogues.filter((c) => !dropped.has(c.user_id)),
+    analytics: data.analytics.filter((a) => !dropped.has(a.user_id)),
+    subscriptions: data.subscriptions.filter((s) => keepCustomer(s.customer_id)),
+    aiCredits: data.aiCredits.filter((a) => !dropped.has(a.user_id)),
     qrConfigs: data.qrConfigs.filter((q) => !catalogues.has(q.catalogue_id)),
     catalogueSubscribers: data.catalogueSubscribers.filter(
       (s) => !catalogues.has(s.catalogue_id),
     ),
-    userThemes: data.userThemes.filter((t) => !internal.has(t.user_id)),
+    userThemes: data.userThemes.filter((t) => !dropped.has(t.user_id)),
     paddle: data.paddle && {
       ...data.paddle,
       subscriptions:
-        data.paddle.subscriptions?.filter((s) => !customers.has(s.customerId)) ??
+        data.paddle.subscriptions?.filter((s) => keepCustomer(s.customerId)) ??
         null,
     },
+  }
+}
+
+// Everything that belongs to an internal or test account, left out.
+export const withoutInternal = (data: DashboardData): DashboardData =>
+  keepUsers(data, (u) => !u.internal, true)
+
+// ── Source filter ───────────────────────────────────────────────────────────
+
+const sourceMatcher = (key: SourceKey): ((u: UserRow) => boolean) | null => {
+  if (key === "tracked") return (u) => u.channel != null
+  if (key === "untracked") return (u) => u.channel == null
+  const parsed = parseSourceKey(key)
+  if (!parsed) return null
+  const { dimension, value } = parsed
+  if (dimension === "channel") return (u) => u.channel != null && channelLabel(u.channel) === value
+  return (u) => u.touch?.[dimension] === value
+}
+
+// What a selection covers, as it reads after "Only".
+export const describeSource = (key: SourceKey): string | null => {
+  if (key === "tracked") return "signups with a tracked source"
+  if (key === "untracked") return "signups with no tracked source"
+  const parsed = parseSourceKey(key)
+  if (!parsed) return null
+  return parsed.dimension === "channel"
+    ? `signups from ${parsed.value}`
+    : `signups tagged utm_${parsed.dimension}=${parsed.value}`
+}
+
+// Only the signups the filter picks, and everything that is theirs. Paddle's
+// metrics (MRR, revenue, refunds, checkout) are account-wide and can't be
+// split by where people came from, so they are left out; MRR is then summed
+// from these customers' subscriptions. `lastDay` is the newest analytics day
+// of all the data, which the at-risk count measures from.
+export function withSource(
+  data: DashboardData,
+  key: SourceKey,
+  lastDay: string | null,
+): DashboardData {
+  const match = sourceMatcher(key)
+  if (!match) return data
+  const kept = keepUsers(data, match, false)
+
+  // The Customers page reads two outreach counts, which the server counts
+  // for everyone. Recounted here for these signups, by the same definitions
+  // as lib/segments.ts.
+  const since = lastDay ? addDays(lastDay, -30) : null
+  const viewedLately = new Set(
+    kept.analytics.flatMap((a) =>
+      a.pageviews > 0 && since != null && a.day > since ? [a.user_id] : [],
+    ),
+  )
+  const paying = new Set(
+    kept.subscriptions
+      .filter((s) => PAYING_STATUSES.includes((s.subscription_status ?? "").toLowerCase()))
+      .map((s) => s.customer_id),
+  )
+  const subscribed = new Set(data.subscriptions.map((s) => s.customer_id))
+  const recount: Record<string, number> = {
+    "paying-no-views": kept.users.filter(
+      (u) => u.customer_id && paying.has(u.customer_id) && !viewedLately.has(u.id),
+    ).length,
+    "checkout-abandoned": kept.users.filter(
+      (u) => u.customer_id && !subscribed.has(u.customer_id),
+    ).length,
+  }
+
+  return {
+    ...kept,
+    paddle: kept.paddle && {
+      ...kept.paddle,
+      mrr: null,
+      revenue: null,
+      refunds: null,
+      checkout: null,
+    },
+    segments: data.segments.map((s) =>
+      s.id in recount ? { ...s, count: recount[s.id] } : s,
+    ),
+    sourceLabel: describeSource(key) ?? undefined,
+  }
+}
+
+export type SourceOption = { key: SourceKey; label: string; count: number }
+
+// The filter's choices, with how many signups each covers, all time.
+export function sourceOptions(data: DashboardData): {
+  general: SourceOption[]
+  channels: SourceOption[]
+  mediums: SourceOption[]
+  campaigns: SourceOption[]
+} {
+  const tracked = data.users.filter((u) => u.channel != null)
+  const optionsBy = (
+    dimension: "channel" | "medium" | "campaign",
+    valueOf: (u: UserRow) => string | null,
+  ): SourceOption[] => {
+    const counts = new Map<string, number>()
+    for (const u of tracked) {
+      const v = valueOf(u)
+      if (v) counts.set(v, (counts.get(v) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([value, count]) => ({
+        key: sourceKey(dimension, value),
+        label: value,
+        count,
+      }))
+  }
+  return {
+    general: [
+      { key: "tracked", label: "Any tracked source", count: tracked.length },
+      {
+        key: "untracked",
+        label: NOT_TRACKED,
+        count: data.users.length - tracked.length,
+      },
+    ],
+    channels: optionsBy("channel", (u) => channelLabel(u.channel)),
+    mediums: optionsBy("medium", (u) => u.touch?.medium ?? null),
+    campaigns: optionsBy("campaign", (u) => u.touch?.campaign ?? null),
   }
 }
 
@@ -409,15 +566,102 @@ export function computeView(
   })
 
   const startedCohort = usersInRange.filter((u) => startedUsers.has(u.id)).length
+
+  // ── Where the signups in range came from ─────────────────────────────────
+  const tracked = usersInRange.filter((u) => u.channel != null)
+  const channelOf = (u: UserRow) => channelLabel(u.channel)
+  const progressOf = (us: UserRow[]) => ({
+    signups: us.length,
+    started: us.filter((u) => startedUsers.has(u.id)).length,
+    built: us.filter((u) => builtUsers.has(u.id)).length,
+    published: us.filter((u) => publishedUsers.has(u.id)).length,
+    paying: us.filter(everSubscribed).length,
+  })
+  const groupBy = (us: UserRow[], key: (u: UserRow) => string) => {
+    const m = new Map<string, UserRow[]>()
+    for (const u of us) {
+      const k = key(u)
+      const list = m.get(k)
+      if (list) list.push(u)
+      else m.set(k, [u])
+    }
+    return m
+  }
+  const bySignups = <T extends { signups: number }>(a: T, b: T) => b.signups - a.signups
+  const channelRows: ChannelRow[] = Array.from(groupBy(tracked, channelOf))
+    .map(([channel, us]) => ({
+      channel,
+      filterKey: sourceKey("channel", channel),
+      ...progressOf(us),
+    }))
+    .sort((a, b) => bySignups(a, b) || a.channel.localeCompare(b.channel))
+  const trackedChannels = channelRows.length
+  const untracked = usersInRange.filter((u) => u.channel == null)
+  if (untracked.length > 0) {
+    channelRows.push({ channel: NOT_TRACKED, filterKey: "untracked", ...progressOf(untracked) })
+  }
+  // The five biggest channels get a series each; the rest share one.
+  const OTHER_CHANNELS = "Other channels"
+  const topChannels = channelRows.slice(0, Math.min(trackedChannels, 5)).map((r) => r.channel)
+  const channelNames =
+    trackedChannels > topChannels.length ? [...topChannels, OTHER_CHANNELS] : topChannels
+  const channelSeries = series(
+    Object.fromEntries(
+      channelNames.map((name) => [
+        name,
+        countPer(
+          tracked
+            .filter((u) =>
+              name === OTHER_CHANNELS
+                ? !topChannels.includes(channelOf(u))
+                : channelOf(u) === name,
+            )
+            .map((u) => u.created_at),
+        ),
+      ]),
+    ),
+  )
+  const tagged = usersInRange.filter(
+    (u) => u.touch && (u.touch.source || u.touch.medium || u.touch.campaign),
+  )
+  const campaigns: CampaignRow[] = Array.from(
+    groupBy(tagged, (u) => [u.touch!.source, u.touch!.medium, u.touch!.campaign].join("\u0000")),
+  )
+    .map(([key, us]) => {
+      const { signups, built, paying } = progressOf(us)
+      const t = us[0].touch!
+      return { key, source: t.source, medium: t.medium, campaign: t.campaign, signups, built, paying }
+    })
+    .sort(bySignups)
+  const touchBuckets = (pick: (t: NonNullable<UserRow["touch"]>) => string | null) =>
+    bucketise(
+      usersInRange.flatMap((u) => {
+        const v = u.touch ? pick(u.touch) : null
+        return v ? [{ key: v }] : []
+      }),
+    )
+  const answers = usersInRange.filter((u) => u.selfReported && u.selfReported !== SKIPPED)
+
   const acquisition = {
     weeklyAvg: round1(usersInRange.length / (spanDays / 7)),
     startedPct: pctOf(startedCohort, usersInRange.length),
-    sources: bucketise(
-      usersInRange.map((u) => ({ key: u.acquisition_source })),
-      (s) => (s === "-" ? "Not recorded" : titleCase(s)),
+    tracked: tracked.length,
+    trackedPct: pctOf(tracked.length, usersInRange.length),
+    channels: channelRows
+      .filter((r) => r.channel !== NOT_TRACKED)
+      .map((r) => ({ name: r.channel, value: r.signups })),
+    channelRows,
+    channelSeries,
+    channelNames,
+    campaigns,
+    referrers: foldTail(touchBuckets((t) => t.referrer), 8),
+    landingPages: foldTail(touchBuckets((t) => t.landing), 8),
+    selfReported: foldTail(
+      bucketise(answers.map((u) => ({ key: answerLabel(u.selfReported!) }))),
+      8,
     ),
-    sourceRecorded: data.users.filter((u) => u.acquisition_source).length,
-    totalUsers: data.users.length,
+    answered: answers.length,
+    skipped: usersInRange.filter((u) => u.selfReported === SKIPPED).length,
     byBusinessType: bucketise(
       cataloguesInRange.map((c) => ({ key: c.business_type })),
       titleCase,
@@ -881,6 +1125,7 @@ export function computeView(
   return {
     start: startISO,
     end: endISO,
+    sourceLabel: data.sourceLabel ?? null,
     analyticsUntil: untilISO,
     analyticsClamped: untilISO < endISO,
     signups: usersInRange.length,

@@ -36,6 +36,15 @@ export default function RevenueTab({ view, animationKey }: TabProps) {
         subtitle="Recurring revenue, what was collected, refunds and checkout conversion"
       />
 
+      {r.connected && view.sourceLabel && (
+        <Note tone="amber">
+          Only {view.sourceLabel}. Paddle reports revenue, refunds and checkout
+          for the whole account, not per customer, so they stay empty while a
+          source is picked, and MRR is these customers&apos; subscriptions at
+          their price.
+        </Note>
+      )}
+
       {!r.connected && (
         <Note tone="amber">
           Paddle isn&apos;t connected. Add a read-only <code>PADDLE_API_KEY</code>{" "}
@@ -66,7 +75,13 @@ export default function RevenueTab({ view, animationKey }: TabProps) {
           icon={DollarSign}
           value={r.revenue == null ? "—" : cur(r.revenue)}
           pending={r.revenue == null}
-          hint={r.revenue == null ? "from Paddle" : "collected in range"}
+          hint={
+            r.revenue != null
+              ? "collected in range"
+              : view.sourceLabel && r.connected
+                ? "account-wide only"
+                : "from Paddle"
+          }
           scope="In range"
         />
         <KpiCard
