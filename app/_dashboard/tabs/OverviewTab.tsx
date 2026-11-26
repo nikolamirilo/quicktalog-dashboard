@@ -1,11 +1,9 @@
 "use client"
 
-import { Fragment } from "react"
-import { AlertTriangle } from "lucide-react"
-
 import { LineChart } from "@/components/charts"
 
-import type { Attention, Bucket, TabProps } from "../types"
+import ConversionFunnel from "../ConversionFunnel"
+import type { Attention, TabProps } from "../types"
 import {
   ChartCard,
   Empty,
@@ -13,61 +11,7 @@ import {
   SectionHeading,
   TabLink,
   number,
-  pct,
 } from "../ui"
-
-const share = (part: number, whole: number) =>
-  whole ? Math.round((part / whole) * 1000) / 10 : 0
-
-// Each step of the signup funnel against the number who signed up. The drop
-// from "Started" to "Built" gets its own row: that is where most stop.
-function Funnel({
-  steps,
-  prev,
-  stalled,
-}: {
-  steps: Bucket[]
-  prev: Bucket[] | null
-  stalled: number
-}) {
-  const top = steps[0]?.value ?? 0
-  const prevTop = prev?.[0]?.value ?? 0
-  return (
-    <ol className="space-y-1">
-      {steps.map((s, i) => (
-        <Fragment key={s.name}>
-          {i === 2 && stalled > 0 && (
-            <li className="my-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-amber/35 bg-amber-soft px-3 py-2.5 text-[13.5px] font-semibold text-ink">
-              <AlertTriangle className="size-4 text-amber-ink" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                {number(stalled)} stopped at an empty catalogue
-              </span>
-              <TabLink tab="outreach">Open the list</TabLink>
-            </li>
-          )}
-          <li className="grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-x-3 gap-y-1 py-1.5 sm:grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)_6.5rem]">
-            <span className="text-[13.5px] font-semibold text-ink">{s.name}</span>
-            <span className="col-span-2 row-start-2 h-3 rounded-r-[4px] bg-bg-alt sm:col-span-1 sm:row-start-auto">
-              <span
-                className="block h-full rounded-r-[4px] bg-series-amber"
-                style={{ width: `${top ? Math.max((s.value / top) * 100, s.value ? 1 : 0) : 0}%` }}
-              />
-            </span>
-            <span className="text-right text-[13.5px] tabular-nums">
-              <b className="font-bold text-ink">{number(s.value)}</b>
-              <span className="text-ink-3"> · {pct(share(s.value, top))}</span>
-              {prev && prevTop > 0 && i > 0 && (
-                <small className="block text-[12px] text-ink-3">
-                  was {pct(share(prev[i]?.value ?? 0, prevTop))}
-                </small>
-              )}
-            </span>
-          </li>
-        </Fragment>
-      ))}
-    </ol>
-  )
-}
 
 function AttentionList({ items }: { items: Attention[] }) {
   if (items.length === 0) return <Empty label="Nothing needs a look right now." />
@@ -118,11 +62,11 @@ export default function OverviewTab({
       >
         <div className="lg:col-span-2">
           <ChartCard
-            title="Signup funnel"
+            title="Conversion funnel"
             subtitle={`The ${number(view.signups)} people who signed up in range, and how far each has got`}
             scope="Signups in range"
           >
-            <Funnel
+            <ConversionFunnel
               steps={activation.funnel}
               prev={prev?.activation.funnel ?? null}
               stalled={activation.stalledEmpty}
