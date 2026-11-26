@@ -27,8 +27,27 @@ export type UserRow = {
   created_at: string | null
   plan_id: string | null
   customer_id: string | null
-  acquisition_source: string | null
+  // The tracked channel: a UTM source ("newsletter"), a known site ("google",
+  // "linkedin", "ai_search", "referral"), "catalogue_badge" or "direct". Null
+  // when the signup has no tracked source (see lib/attribution.ts).
+  channel: string | null
+  // The first touch, only when it was recorded at signup.
+  touch: Touch | null
+  // The answer to "How did you hear about us?": a slug, the person's own
+  // words, or "Skipped". Null when they haven't been asked yet.
+  selfReported: string | null
   internal: boolean // listed in INTERNAL_EMAILS
+}
+
+// UTM tags in lower case, so "LinkedIn" and "linkedin" are one source.
+export type Touch = {
+  source: string | null
+  medium: string | null
+  campaign: string | null
+  content: string | null
+  term: string | null
+  referrer: string | null // referring domain, never our own
+  landing: string | null // path of the first page
 }
 
 export type Person = { name: string | null; email: string | null }
@@ -181,8 +200,12 @@ export type DashboardData = {
   userThemes: UserThemeRow[]
   newsletterSubscriberCount: number
   lastImportAt: string | null // newest successful analytics import
+  trackingSince: string | null // the first signup with a tracked first touch
   paddle: PaddleData | null // null until PADDLE_API_KEY is set
   segments: SegmentSummary[]
+  // Set on the client while the source filter narrows the data to some
+  // signups: what they are, e.g. "LinkedIn".
+  sourceLabel?: string
 }
 
 // ── Views ───────────────────────────────────────────────────────────────────
@@ -264,6 +287,28 @@ export type CreationSplit = {
   overTime: Series
 }
 
+// Signups from one channel in range, and how far they have got to date.
+export type ChannelRow = {
+  channel: string
+  filterKey: string | null // picks this row in the source filter
+  signups: number
+  started: number
+  built: number
+  published: number
+  paying: number // ever subscribed
+}
+
+// Signups in range with the same UTM source, medium and campaign.
+export type CampaignRow = {
+  key: string
+  source: string | null
+  medium: string | null
+  campaign: string | null
+  signups: number
+  built: number
+  paying: number
+}
+
 export type CohortRow = {
   cohort: string
   signups: number
@@ -285,6 +330,7 @@ export type MatrixRow = {
 export type DashboardView = {
   start: string
   end: string
+  sourceLabel: string | null // the source filter's selection, if any
   analyticsUntil: string // the last day the traffic figures include
   analyticsClamped: boolean // the range runs past the newest analytics day
   signups: number
@@ -293,9 +339,18 @@ export type DashboardView = {
   acquisition: {
     weeklyAvg: number
     startedPct: number
-    sources: Bucket[]
-    sourceRecorded: number // users with a source, all time
-    totalUsers: number
+    tracked: number // signups in range with a tracked channel
+    trackedPct: number
+    channels: Bucket[] // tracked signups per channel, "Not tracked" left out
+    channelRows: ChannelRow[] // per channel, "Not tracked" last
+    channelSeries: Series // tracked signups per period, top channels
+    channelNames: string[] // the series in channelSeries
+    campaigns: CampaignRow[] // signups with any UTM tag
+    referrers: Bucket[] // referring domains of tracked signups
+    landingPages: Bucket[]
+    selfReported: Bucket[] // answers, skips left out
+    answered: number
+    skipped: number
     byBusinessType: Bucket[]
     byLanguage: Bucket[]
     cohorts: CohortRow[]

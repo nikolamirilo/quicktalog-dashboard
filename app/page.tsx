@@ -2,6 +2,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 
+import { attributionOf, type RawAttribution } from "@/lib/attribution"
 import { query } from "@/lib/db"
 import { internalMatcher } from "@/lib/internal"
 import { getPaddleData } from "@/lib/paddle"
@@ -21,14 +22,12 @@ import type {
   UserThemeRow,
 } from "./_dashboard/types"
 
-type RawUser = {
+type RawUser = RawAttribution & {
   id: string
   email: string | null
   name: string | null
-  created_at: string | null
   plan_id: string | null
   customer_id: string | null
-  acquisition_source: string | null
 }
 
 export default async function Page() {
@@ -55,7 +54,10 @@ export default async function Page() {
     lastImport,
   ] = await Promise.all([
     query<RawUser>(
-      `select id, email, name, created_at, plan_id, customer_id, acquisition_source
+      `select id, email, name, created_at, plan_id, customer_id,
+              acquisition_source, self_reported_source,
+              utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+              referrer_domain, landing_path, first_seen_at
          from public.users`,
     ),
     query<RawCatalogue>(
@@ -123,10 +125,16 @@ export default async function Page() {
       created_at: u.created_at,
       plan_id: u.plan_id,
       customer_id: u.customer_id,
-      acquisition_source: u.acquisition_source,
+      ...attributionOf(u),
       internal: isInternal(u.email),
     }
   })
+
+  // The first signup whose first touch was recorded: tracking's start.
+  const trackingSince =
+    users
+      .flatMap((u) => (u.touch && u.created_at ? [u.created_at] : []))
+      .sort()[0] ?? null
 
   const data = aggregate({
     users,
@@ -141,6 +149,7 @@ export default async function Page() {
     userThemes,
     newsletterSubscriberCount: newsletterCount[0]?.count ?? 0,
     lastImportAt: lastImport[0]?.at ?? null,
+    trackingSince,
     paddle,
     segments,
   })

@@ -109,6 +109,7 @@ export default function Hero({
   analyticsUntil,
   pulses,
   compareLabel,
+  sourceLabel,
   sources,
   controls,
 }: {
@@ -117,6 +118,7 @@ export default function Hero({
   analyticsUntil: string | null // set when traffic stops before `end`
   pulses: Pulse[] | null // the headline tiles, on Overview only
   compareLabel: string | null
+  sourceLabel: string | null // what the source filter keeps, if it is on
   sources: SourceStatus[]
   controls: React.ReactNode
 }) {
@@ -149,6 +151,13 @@ export default function Hero({
                 <b className="font-semibold text-ink">{formatDay(analyticsUntil)}</b>
                 , the newest day with data, and is compared over the same number
                 of days.
+              </>
+            )}
+            {sourceLabel && (
+              <>
+                {" "}
+                Only <b className="font-semibold text-ink">{sourceLabel}</b>, and
+                their catalogues, views and subscriptions.
               </>
             )}
           </p>

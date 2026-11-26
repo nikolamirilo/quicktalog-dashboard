@@ -117,10 +117,12 @@ export default function OutreachTab({
   segments,
   paddleConnected,
   animationKey,
+  filtered,
 }: {
   segments: SegmentSummary[]
   paddleConnected: boolean
   animationKey: string
+  filtered: boolean // the source filter is on
 }) {
   return (
     <div className="space-y-6">
@@ -134,6 +136,11 @@ export default function OutreachTab({
         account, such as finishing a catalogue they started, and include an
         unsubscribe link.
       </Note>
+      {filtered && (
+        <Note tone="amber">
+          These lists cover everyone; the source filter doesn&apos;t narrow them.
+        </Note>
+      )}
       <section
         key={`${animationKey}-out`}
         className="animate-chart-in grid grid-cols-1 gap-4 md:grid-cols-2"
