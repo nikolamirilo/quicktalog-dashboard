@@ -299,36 +299,40 @@ function Rows({
   )
 }
 
-// The figures the two views draw, for screen readers.
+// The figures the two views draw, for screen readers. Hidden by a wrapper,
+// not on the table itself: a table's caption sits outside the table's box, so
+// Safari leaves it showing when the table is clipped.
 function FunnelTable({ steps }: { steps: Step[] }) {
   return (
-    <table className="sr-only">
-      <caption>Conversion funnel</caption>
-      <thead>
-        <tr>
-          <th scope="col">Step</th>
-          <th scope="col">People</th>
-          <th scope="col">Share of signups</th>
-          <th scope="col">Change from the step before</th>
-          <th scope="col">Share of signups, previous period</th>
-        </tr>
-      </thead>
-      <tbody>
-        {steps.map((s) => (
-          <tr key={s.name}>
-            <th scope="row">{s.name}</th>
-            <td>{number(s.value)}</td>
-            <td>{pct(s.ofTop)}</td>
-            <td>
-              {s.from?.change == null
-                ? "–"
-                : `${s.from.change > 0 ? "+" : ""}${pct(s.from.change)}`}
-            </td>
-            <td>{s.was === null ? "–" : pct(s.was)}</td>
+    <div className="sr-only">
+      <table>
+        <caption>Conversion funnel</caption>
+        <thead>
+          <tr>
+            <th scope="col">Step</th>
+            <th scope="col">People</th>
+            <th scope="col">Share of signups</th>
+            <th scope="col">Change from the step before</th>
+            <th scope="col">Share of signups, previous period</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {steps.map((s) => (
+            <tr key={s.name}>
+              <th scope="row">{s.name}</th>
+              <td>{number(s.value)}</td>
+              <td>{pct(s.ofTop)}</td>
+              <td>
+                {s.from?.change == null
+                  ? "–"
+                  : `${s.from.change > 0 ? "+" : ""}${pct(s.from.change)}`}
+              </td>
+              <td>{s.was === null ? "–" : pct(s.was)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
